@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Clock, DollarSign, Zap, XCircle, Download, Wifi, WifiOff } from 'lucide-react'
+import { ArrowLeft, Clock, DollarSign, Zap, XCircle, Download, Wifi, WifiOff, FileJson, FileText, Code } from 'lucide-react'
 import { MainLayout } from '@/components/Layout'
 import { Button, Card, CardHeader, PageSpinner, StatusBadge, Alert } from '@/components/Common'
 import { executionService } from '@/services/executionService'
@@ -145,9 +145,37 @@ export default function ExecutionDetail() {
             </Button>
           )}
           {currentStatus === 'completed' && (
-            <Button variant="secondary" icon={<Download className="w-4 h-4" />}>
-              Export
-            </Button>
+            <div className="relative group">
+              <Button variant="secondary" icon={<Download className="w-4 h-4" />}>
+                Export
+              </Button>
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <a
+                  href={`${import.meta.env.VITE_API_URL}/api/v1/executions/${id}/export?format=json`}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  download
+                >
+                  <FileJson className="w-4 h-4" />
+                  JSON
+                </a>
+                <a
+                  href={`${import.meta.env.VITE_API_URL}/api/v1/executions/${id}/export?format=markdown`}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  download
+                >
+                  <FileText className="w-4 h-4" />
+                  Markdown
+                </a>
+                <a
+                  href={`${import.meta.env.VITE_API_URL}/api/v1/executions/${id}/export?format=html`}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  download
+                >
+                  <Code className="w-4 h-4" />
+                  HTML
+                </a>
+              </div>
+            </div>
           )}
         </div>
       </div>

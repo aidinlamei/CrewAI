@@ -1,4 +1,5 @@
 """Services package."""
+from app.services.export_service import export_service
 from app.services.encryption_service import encryption_service
 from app.services.llm_service import llm_service
 from app.services.tool_service import tool_service

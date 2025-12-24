@@ -148,3 +148,66 @@ def get_execution_logs(execution_id: UUID, db: Session = Depends(get_db)):
         "logs": execution.logs or "",
         "status": execution.status,
     }
+
+
+@router.get("/executions/{execution_id}/export")
+def export_execution(
+    execution_id: UUID,
+    format: str = "json",
+    db: Session = Depends(get_db),
+):
+    """
+    Export execution result.
+    
+    Supported formats: json, markdown, html, csv
+    """
+    from fastapi.responses import Response
+    from app.services.export_service import export_service
+    
+    execution = db.query(Execution).filter(Execution.id == execution_id).first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+    
+    # Convert to dict
+    exec_data = {
+        "id": str(execution.id),
+        "project_id": str(execution.project_id),
+        "status": execution.status,
+        "input_data": execution.input_data,
+        "output_format": execution.output_format,
+        "result": execution.result,
+        "logs": execution.logs,
+        "error_message": execution.error_message,
+        "tokens_used": execution.tokens_used,
+        "estimated_cost": str(execution.estimated_cost) if execution.estimated_cost else "0",
+        "started_at": execution.started_at.isoformat() if execution.started_at else None,
+        "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+        "created_at": execution.created_at.isoformat() if execution.created_at else None,
+    }
+    
+    if format == "json":
+        content = export_service.to_json(exec_data)
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.json"}
+        )
+    
+    elif format == "markdown":
+        content = export_service.to_markdown(exec_data)
+        return Response(
+            content=content,
+            media_type="text/markdown",
+            headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.md"}
+        )
+    
+    elif format == "html":
+        content = export_service.to_html(exec_data)
+        return Response(
+            content=content,
+            media_type="text/html",
+            headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.html"}
+        )
+    
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Plus, Edit2, Trash2, Search, Wrench, Code, Globe, FileText } from 'lucide-react'
+import { Plus, Edit2, Trash2, Search, Wrench, Code, Globe, FileText, Play } from 'lucide-react'
 import { MainLayout } from '@/components/Layout'
-import { Button, Card, Modal, Input, Select, EmptyState, ConfirmDialog, PageSpinner, Badge } from '@/components/Common'
+import { Button, Card, Modal, Input, Select, EmptyState, ConfirmDialog, PageSpinner, Badge, Alert } from '@/components/Common'
+import { CodeEditor, defaultPythonTemplate } from '@/components/Editor'
 import { toolService } from '@/services/toolService'
 import type { ToolCreate, ToolUpdate } from '@/types/tool'
 
@@ -23,12 +24,14 @@ export default function Tools() {
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [filterCategory, setFilterCategory] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [testingTool, setTestingTool] = useState<string | null>(null)
+  const [testResult, setTestResult] = useState<{ success: boolean; result?: any; error?: string } | null>(null)
   const [formData, setFormData] = useState<ToolCreate>({
     name: '',
     type: 'custom',
     category: '',
     description: '',
-    python_code: '',
+    python_code: defaultPythonTemplate,
     config: {},
   })
 
@@ -74,15 +77,29 @@ export default function Tools() {
     onError: () => toast.error('Failed to delete tool'),
   })
 
+  const testMutation = useMutation({
+    mutationFn: (id: string) => toolService.test(id, {}),
+    onSuccess: (data) => {
+      setTestResult(data)
+      if (data.success) {
+        toast.success('Tool test passed!')
+      } else {
+        toast.error(`Tool test failed: ${data.error}`)
+      }
+    },
+    onError: () => toast.error('Failed to test tool'),
+  })
+
   const closeModal = () => {
     setShowModal(false)
     setEditingTool(null)
+    setTestResult(null)
     setFormData({
       name: '',
       type: 'custom',
       category: '',
       description: '',
-      python_code: '',
+      python_code: defaultPythonTemplate,
       config: {},
     })
   }
@@ -94,7 +111,7 @@ export default function Tools() {
       type: tool.type,
       category: tool.category || '',
       description: tool.description || '',
-      python_code: tool.python_code || '',
+      python_code: tool.python_code || defaultPythonTemplate,
       config: tool.config || {},
     })
     setShowModal(true)
@@ -165,28 +182,40 @@ export default function Tools() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTools.map((tool) => (
             <Card key={tool.id} className="relative">
-              {tool.type === 'custom' && (
-                <div className="absolute top-4 right-4 flex gap-2">
-                  <button
-                    onClick={() => openEditModal(tool)}
-                    className="p-1.5 rounded hover:bg-gray-100"
-                  >
-                    <Edit2 className="w-4 h-4 text-gray-500" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteId(tool.id)}
-                    className="p-1.5 rounded hover:bg-gray-100"
-                  >
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
-              )}
+              <div className="absolute top-4 right-4 flex gap-1">
+                {tool.type === 'custom' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setTestingTool(tool.id)
+                        testMutation.mutate(tool.id)
+                      }}
+                      className="p-1.5 rounded hover:bg-gray-100"
+                      title="Test tool"
+                    >
+                      <Play className={`w-4 h-4 ${testingTool === tool.id && testMutation.isPending ? 'text-blue-500 animate-pulse' : 'text-gray-500'}`} />
+                    </button>
+                    <button
+                      onClick={() => openEditModal(tool)}
+                      className="p-1.5 rounded hover:bg-gray-100"
+                    >
+                      <Edit2 className="w-4 h-4 text-gray-500" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(tool.id)}
+                      className="p-1.5 rounded hover:bg-gray-100"
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </button>
+                  </>
+                )}
+              </div>
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-gray-100 rounded-lg text-gray-600">
                   {getIcon(tool.category || 'default')}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate pr-16">{tool.name}</h3>
+                  <h3 className="font-semibold text-gray-900 truncate pr-20">{tool.name}</h3>
                   <p className="text-sm text-gray-600 mt-1 line-clamp-2">{tool.description}</p>
                   <div className="flex gap-2 mt-3">
                     <Badge variant={tool.type === 'custom' ? 'primary' : 'default'} size="sm">
@@ -206,11 +235,11 @@ export default function Tools() {
           title="No tools found"
           description={searchQuery || filterCategory ? "Try adjusting your filters" : "Create your first custom tool"}
           action={
-            !searchQuery && !filterCategory && (
+            !searchQuery && !filterCategory ? (
               <Button icon={<Plus className="w-4 h-4" />} onClick={() => setShowModal(true)}>
                 Create Custom Tool
               </Button>
-            )
+            ) : undefined
           }
         />
       )}
@@ -220,26 +249,15 @@ export default function Tools() {
         isOpen={showModal}
         onClose={closeModal}
         title={editingTool ? 'Edit Tool' : 'Create Custom Tool'}
-        size="lg"
+        size="xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="e.g., My Custom Tool"
-            required
-          />
           <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Type"
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              options={[
-                { value: 'custom', label: 'Custom' },
-                { value: 'langchain', label: 'LangChain' },
-                { value: 'built-in', label: 'Built-in' },
-              ]}
+            <Input
+              label="Name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="e.g., My Custom Tool"
               required
             />
             <Input
@@ -249,6 +267,7 @@ export default function Tools() {
               placeholder="e.g., search, file, web"
             />
           </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
@@ -260,20 +279,27 @@ export default function Tools() {
             />
           </div>
           
-          {formData.type === 'custom' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Python Code</label>
-              <textarea
-                value={formData.python_code}
-                onChange={(e) => setFormData({ ...formData, python_code: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary font-mono text-sm"
-                rows={8}
-                placeholder={`def my_tool(param1: str) -> str:
-    """Tool description"""
-    # Your code here
-    return result`}
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Python Code
+            </label>
+            <CodeEditor
+              value={formData.python_code || ''}
+              onChange={(value) => setFormData({ ...formData, python_code: value })}
+              height="300px"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Write a Python function. The function will be called with the specified parameters.
+            </p>
+          </div>
+
+          {testResult && (
+            <Alert type={testResult.success ? 'success' : 'error'}>
+              {testResult.success 
+                ? `Test passed! Result: ${JSON.stringify(testResult.result)}`
+                : `Test failed: ${testResult.error}`
+              }
+            </Alert>
           )}
 
           <div className="flex gap-3 pt-4">
