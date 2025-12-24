@@ -16,6 +16,7 @@ import ExecutionDetail from './pages/ExecutionDetail'
 import Templates from './pages/Templates'
 import TokenUsage from './pages/TokenUsage'
 import Settings from './pages/Settings'
+import FlowDesigner from './pages/FlowDesigner'
 
 // Create Query Client
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ function App() {
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/projects/:projectId/agents" element={<Agents />} />
             <Route path="/projects/:projectId/tasks" element={<Tasks />} />
+            <Route path="/projects/:projectId/flow" element={<FlowDesigner />} />
             
             {/* Tools & Providers */}
             <Route path="/tools" element={<Tools />} />

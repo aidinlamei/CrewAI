@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { 
   ArrowLeft, Users, ListTodo, Play, Edit2, Trash2, 
-  Plus, Clock 
+  Plus, Clock, GitBranch 
 } from 'lucide-react'
 import { MainLayout } from '@/components/Layout'
 import { 
@@ -202,26 +202,44 @@ export default function ProjectDetail() {
         </Card>
       </div>
 
-      {/* Execute Button */}
-      <Card className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-gray-900">Execute Project</h3>
-            <p className="text-sm text-gray-500">
-              {canExecute 
-                ? 'Run your crew with the configured agents and tasks'
-                : 'Add at least one agent and one task to execute'}
-            </p>
+      {/* Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-900">Execute Project</h3>
+              <p className="text-sm text-gray-500">
+                {canExecute 
+                  ? 'Run your crew with the configured agents and tasks'
+                  : 'Add at least one agent and one task to execute'}
+              </p>
+            </div>
+            <Button
+              icon={<Play className="w-4 h-4" />}
+              onClick={() => setShowExecuteModal(true)}
+              disabled={!canExecute}
+            >
+              Execute
+            </Button>
           </div>
-          <Button
-            icon={<Play className="w-4 h-4" />}
-            onClick={() => setShowExecuteModal(true)}
-            disabled={!canExecute}
-          >
-            Execute
-          </Button>
-        </div>
-      </Card>
+        </Card>
+
+        <Card>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-900">Flow Designer</h3>
+              <p className="text-sm text-gray-500">
+                Visualize agents and tasks workflow
+              </p>
+            </div>
+            <Link to={`/projects/${id}/flow`}>
+              <Button variant="secondary" icon={<GitBranch className="w-4 h-4" />}>
+                Open
+              </Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Agents */}

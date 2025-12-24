@@ -5,131 +5,108 @@
 ---
 
 ## ✅ Stage 1 - Frontend Core (COMPLETED)
-
 **تاریخ:** 2024-12-24
 
-### چه کارهایی انجام شد:
 - Layout Components (Sidebar, Navbar, MainLayout)
 - Common Components (Button, Input, Modal, Card, Spinner, Alert, Badge, EmptyState, ConfirmDialog)
 - Zustand Store (uiStore)
 - Services (task, tool, llm, template, execution)
 - Pages (Agents, Tasks, Tools, LLMProviders, Executions, ExecutionDetail, Templates, TokenUsage, Settings)
-- بروزرسانی Dashboard, Projects, ProjectDetail
 - Config updates (path aliases, Tailwind colors)
 - Backend templates API
 
 ---
 
 ## ✅ Stage 2 - WebSocket + Celery (COMPLETED)
+**تاریخ:** 2024-12-24
 
+- WebSocket endpoint برای real-time logs
+- Celery tasks برای background execution
+- Frontend WebSocket client و hook
+- بروزرسانی ExecutionDetail با live logs
+- بروزرسانی docker-compose با celery-worker و celery-beat
+
+---
+
+## ✅ Stage 3 - React Flow Designer (COMPLETED)
 **تاریخ:** 2024-12-24
 
 ### چه کارهایی انجام شد:
 
-#### 1. Backend WebSocket ✅
-- `app/websockets/__init__.py` - Package init
-- `app/websockets/execution_ws.py` - WebSocket endpoint برای real-time logs
-  - ConnectionManager برای مدیریت connections
-  - Events: log, status, task_update, result, error
-  - Ping/pong برای keep-alive
+#### 1. Flow Components ✅
+- `AgentNode.tsx` - نود سفارشی برای نمایش Agent
+  - نمایش name, role, goal, llm_model
+  - Handles برای اتصال
+  - استایل آبی
+- `TaskNode.tsx` - نود سفارشی برای نمایش Task
+  - نمایش name, description, expected_output
+  - نمایش assigned agent
+  - شماره ترتیب
+  - Status indicator
+  - استایل بنفش
+- `FlowControls.tsx` - کنترل‌های zoom و layout
+- `FlowLegend.tsx` - راهنمای نمادها
 
-#### 2. Celery Tasks ✅
-- `app/tasks/__init__.py` - Package init
-- `app/tasks/celery_app.py` - Celery configuration
-- `app/tasks/crew_tasks.py` - Background task برای execution
-  - `execute_crew_task` - اجرای crew در background
-  - `cancel_execution_task` - لغو execution
-  - ExecutionLogger برای capture logs
+#### 2. FlowDesigner Page ✅
+- `src/pages/FlowDesigner.tsx` - صفحه اصلی Flow Designer
+  - نمایش agents و tasks به صورت گرافیکی
+  - اتصال agent به task
+  - اتصال tasks به صورت sequential
+  - Auto-layout
+  - Zoom in/out
+  - Fit view
+  - Background با dots
 
-#### 3. Frontend WebSocket Client ✅
-- `src/services/websocket.ts` - WebSocket client class
-  - Auto-reconnect
-  - Ping/pong
-  - Event handlers
-- `src/hooks/useExecutionWebSocket.ts` - React hook
-  - Connection management
-  - Log aggregation
-  - Status updates
-
-#### 4. Updated Files ✅
-- `app/main.py` - اضافه شدن WebSocket router
-- `app/api/v1/executions.py` - استفاده از Celery با fallback
-- `src/pages/ExecutionDetail.tsx` - Live logs با WebSocket
-- `docker-compose.yml` - اضافه شدن celery-worker و celery-beat
+#### 3. Updated Files ✅
+- `App.tsx` - اضافه شدن route `/projects/:projectId/flow`
+- `ProjectDetail.tsx` - اضافه شدن لینک به Flow Designer
 
 ---
 
-## 📁 ساختار فایل‌های Stage 2
+## 📁 ساختار فایل‌های Stage 3
 
 ```
-backend/app/
-├── websockets/
-│   ├── __init__.py          ✅ NEW
-│   └── execution_ws.py      ✅ NEW
-├── tasks/
-│   ├── __init__.py          ✅ NEW
-│   ├── celery_app.py        ✅ NEW
-│   └── crew_tasks.py        ✅ NEW
-├── api/v1/
-│   └── executions.py        ✅ UPDATED
-└── main.py                  ✅ UPDATED
-
 frontend/src/
-├── services/
-│   ├── websocket.ts         ✅ NEW
-│   └── index.ts             ✅ UPDATED
-├── hooks/
-│   ├── useExecutionWebSocket.ts ✅ NEW
-│   └── index.ts             ✅ NEW
-└── pages/
-    └── ExecutionDetail.tsx  ✅ UPDATED
-
-docker-compose.yml           ✅ UPDATED (celery-worker, celery-beat)
+├── components/
+│   └── Flow/
+│       ├── AgentNode.tsx       ✅ NEW
+│       ├── TaskNode.tsx        ✅ NEW
+│       ├── FlowControls.tsx    ✅ NEW
+│       ├── FlowLegend.tsx      ✅ NEW
+│       └── index.ts            ✅ NEW
+├── pages/
+│   ├── FlowDesigner.tsx        ✅ NEW
+│   └── ProjectDetail.tsx       ✅ UPDATED
+└── App.tsx                     ✅ UPDATED
 ```
 
 ---
 
-## 🔌 WebSocket API
+## 🎨 Flow Designer Features
 
-### Endpoint
-```
-ws://localhost:8000/api/v1/ws/execution/{execution_id}
-```
+### Node Types
+| نوع | رنگ | توضیح |
+|-----|-----|-------|
+| Agent | آبی | نمایش AI agents |
+| Task | بنفش | نمایش tasks |
 
-### Events (Server → Client)
-```typescript
-// Connection confirmed
-{ type: "connected", data: { execution_id: "..." } }
+### Edge Types
+| نوع | توضیح |
+|-----|-------|
+| Agent → Task | اتصال agent به task (خط ثابت) |
+| Task → Task | جریان sequential (animated) |
 
-// Log message
-{ type: "log", data: "log message here" }
-
-// Status change
-{ type: "status", data: "running" | "completed" | "failed" }
-
-// Task update
-{ type: "task_update", data: { task_id: "...", status: "...", output: "..." } }
-
-// Final result
-{ type: "result", data: { ... } }
-
-// Error
-{ type: "error", data: "error message" }
-
-// Keep-alive
-{ type: "ping" } / { type: "pong" }
-```
-
-### Events (Client → Server)
-```
-"ping" → responds with { type: "pong" }
-```
+### Controls
+- 🔍 Zoom In/Out
+- 📐 Fit View
+- 📊 Auto Layout
+- ℹ️ Legend
 
 ---
 
 ## 🎯 وضعیت فعلی پروژه
 
-### Frontend: ~90% ✅
+### Frontend: ~95% ✅
 - [x] Layout system
 - [x] Common components
 - [x] State management
@@ -137,19 +114,19 @@ ws://localhost:8000/api/v1/ws/execution/{execution_id}
 - [x] API services
 - [x] WebSocket client
 - [x] Real-time execution logs
-- [ ] React Flow (Flow Designer) - Stage 3
+- [x] React Flow Designer
 - [ ] Monaco Editor - Stage 4
+- [ ] Recharts charts - Stage 4
 
 ### Backend: ~85% ✅
 - [x] All models
 - [x] All schemas
 - [x] Core services
 - [x] Main API endpoints
-- [x] Templates API
 - [x] WebSocket endpoint
 - [x] Celery tasks
-- [ ] Full tool execution - Stage 4
-- [ ] Mem0 integration - Stage 4
+- [ ] Full tool execution
+- [ ] Export service
 
 ### Infrastructure: ~95% ✅
 - [x] Docker Compose
@@ -162,56 +139,57 @@ ws://localhost:8000/api/v1/ws/execution/{execution_id}
 
 ## 🔮 مراحل بعدی
 
-### Stage 3 - Flow Designer (بعدی)
-- [ ] React Flow integration
-- [ ] Custom Agent node
-- [ ] Custom Task node
-- [ ] Edge connections
-- [ ] Auto-layout
-- [ ] Save/load flow
-
-### Stage 4 - Advanced Features
+### Stage 4 - Advanced Features (بعدی)
 - [ ] Monaco Editor برای custom tools
 - [ ] Recharts برای token usage charts
 - [ ] Export functionality (JSON, Excel, PDF)
+- [ ] Full tool execution
 - [ ] Mem0 integration
 
 ---
 
 ## 💡 نکات برای توسعه‌دهنده بعدی
 
-### WebSocket Usage
+### Flow Designer Usage
 ```typescript
-import { useExecutionWebSocket } from '@/hooks/useExecutionWebSocket'
+// Access from project detail page
+/projects/:projectId/flow
 
-const { isConnected, logs } = useExecutionWebSocket({
-  executionId: 'xxx',
-  enabled: true,
-  onLog: (log) => console.log(log),
-  onStatusChange: (status) => console.log(status),
-})
+// Or programmatically
+import { Link } from 'react-router-dom'
+<Link to={`/projects/${projectId}/flow`}>Open Flow</Link>
 ```
 
-### Celery Tasks
-```python
-from app.tasks.crew_tasks import execute_crew_task
+### Custom Nodes
+```typescript
+// Create custom node
+import { memo } from 'react'
+import { Handle, Position, NodeProps } from 'reactflow'
 
-# Start async execution
-execute_crew_task.delay(str(execution_id))
+function MyCustomNode({ data }: NodeProps<MyData>) {
+  return (
+    <div>
+      <Handle type="target" position={Position.Left} />
+      {/* Node content */}
+      <Handle type="source" position={Position.Right} />
+    </div>
+  )
+}
+
+export default memo(MyCustomNode)
 ```
 
-### Docker Commands
-```bash
-# Start all services
-docker-compose up -d
+### Register Node Types
+```typescript
+const nodeTypes = {
+  agent: AgentNode,
+  task: TaskNode,
+  myCustom: MyCustomNode, // Add new types here
+}
 
-# View celery logs
-docker-compose logs -f celery-worker
-
-# Restart celery
-docker-compose restart celery-worker
+<ReactFlow nodeTypes={nodeTypes} ... />
 ```
 
 ---
 
-*آخرین بروزرسانی: 2024-12-24 - Stage 2 Complete*
+*آخرین بروزرسانی: 2024-12-24 - Stage 3 Complete*
