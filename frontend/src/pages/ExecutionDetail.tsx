@@ -1,14 +1,19 @@
+import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Clock, DollarSign, Zap, XCircle, Download } from 'lucide-react'
+import { ArrowLeft, Clock, DollarSign, Zap, XCircle, Download, Wifi, WifiOff } from 'lucide-react'
 import { MainLayout } from '@/components/Layout'
 import { Button, Card, CardHeader, PageSpinner, StatusBadge, Alert } from '@/components/Common'
 import { executionService } from '@/services/executionService'
 import { projectService } from '@/services/projectService'
+import { useExecutionWebSocket } from '@/hooks/useExecutionWebSocket'
 
 export default function ExecutionDetail() {
   const { id } = useParams<{ id: string }>()
+  const [wsLogs, setWsLogs] = useState<string[]>([])
+  const [wsStatus, setWsStatus] = useState<string | null>(null)
+  const logsEndRef = useRef<HTMLDivElement>(null)
 
   // Queries
   const { data: execution, isLoading, refetch } = useQuery({
@@ -16,9 +21,9 @@ export default function ExecutionDetail() {
     queryFn: () => executionService.get(id!),
     enabled: !!id,
     refetchInterval: (data) => {
-      // Auto-refresh if running
-      if (data?.state?.data?.status === 'running' || data?.state?.data?.status === 'pending') {
-        return 2000
+      const status = wsStatus || data?.state?.data?.status
+      if (status === 'running' || status === 'pending') {
+        return 3000
       }
       return false
     },
@@ -29,6 +34,36 @@ export default function ExecutionDetail() {
     queryFn: () => projectService.get(execution!.project_id),
     enabled: !!execution?.project_id,
   })
+
+  // WebSocket connection
+  const isRunning = (wsStatus || execution?.status) === 'running' || (wsStatus || execution?.status) === 'pending'
+  
+  const { isConnected, logs: socketLogs } = useExecutionWebSocket({
+    executionId: id!,
+    enabled: isRunning,
+    onLog: (log) => {
+      setWsLogs(prev => [...prev, log])
+    },
+    onStatusChange: (status) => {
+      setWsStatus(status)
+      if (status === 'completed' || status === 'failed') {
+        refetch()
+      }
+    },
+    onResult: () => {
+      refetch()
+      toast.success('Execution completed!')
+    },
+    onError: (error) => {
+      toast.error(`Execution error: ${error}`)
+      refetch()
+    },
+  })
+
+  // Auto-scroll logs
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [wsLogs, socketLogs])
 
   // Cancel mutation
   const cancelMutation = useMutation({
@@ -46,9 +81,12 @@ export default function ExecutionDetail() {
     const end = completedAt ? new Date(completedAt) : new Date()
     const diff = Math.floor((end.getTime() - start.getTime()) / 1000)
     if (diff < 60) return `${diff} seconds`
-    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ${diff % 60} seconds`
-    return `${Math.floor(diff / 3600)} hours ${Math.floor((diff % 3600) / 60)} minutes`
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ${diff % 60}s`
+    return `${Math.floor(diff / 3600)}h ${Math.floor((diff % 3600) / 60)}m`
   }
+
+  const currentStatus = wsStatus || execution?.status || 'pending'
+  const allLogs = [...(execution?.logs?.split('\n') || []), ...wsLogs].filter(Boolean)
 
   if (isLoading) {
     return (
@@ -83,14 +121,20 @@ export default function ExecutionDetail() {
             <h1 className="text-2xl font-bold text-gray-900">
               {project?.name || 'Loading...'}
             </h1>
-            <StatusBadge status={execution.status} />
+            <StatusBadge status={currentStatus as any} />
+            {isRunning && (
+              <span className={`flex items-center gap-1 text-sm ${isConnected ? 'text-green-600' : 'text-gray-400'}`}>
+                {isConnected ? <Wifi className="w-4 h-4" /> : <WifiOff className="w-4 h-4" />}
+                {isConnected ? 'Live' : 'Connecting...'}
+              </span>
+            )}
           </div>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-sm">
             Execution ID: {execution.id}
           </p>
         </div>
         <div className="flex gap-2">
-          {(execution.status === 'running' || execution.status === 'pending') && (
+          {isRunning && (
             <Button
               variant="danger"
               icon={<XCircle className="w-4 h-4" />}
@@ -100,7 +144,7 @@ export default function ExecutionDetail() {
               Cancel
             </Button>
           )}
-          {execution.status === 'completed' && (
+          {currentStatus === 'completed' && (
             <Button variant="secondary" icon={<Download className="w-4 h-4" />}>
               Export
             </Button>
@@ -160,11 +204,46 @@ export default function ExecutionDetail() {
       </div>
 
       {/* Error Message */}
-      {execution.status === 'failed' && execution.error_message && (
+      {currentStatus === 'failed' && execution.error_message && (
         <Alert type="error" title="Execution Failed" className="mb-6">
           {execution.error_message}
         </Alert>
       )}
+
+      {/* Running indicator */}
+      {isRunning && (
+        <Card className="mb-6 bg-blue-50 border-blue-200">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+            <p className="text-blue-700">
+              Execution in progress... 
+              {isConnected ? ' Receiving live updates.' : ' Connecting to live updates...'}
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* Logs */}
+      <Card className="mb-6">
+        <CardHeader 
+          title="Execution Logs" 
+          subtitle={isRunning ? 'Live updates enabled' : undefined}
+        />
+        <div className="bg-gray-900 rounded-lg p-4 max-h-96 overflow-y-auto font-mono text-sm">
+          {allLogs.length > 0 ? (
+            <>
+              {allLogs.map((log, index) => (
+                <div key={index} className="text-green-400 py-0.5">
+                  {log}
+                </div>
+              ))}
+              <div ref={logsEndRef} />
+            </>
+          ) : (
+            <p className="text-gray-500">No logs yet...</p>
+          )}
+        </div>
+      </Card>
 
       {/* Input Data */}
       {execution.input_data && Object.keys(execution.input_data).length > 0 && (
@@ -178,33 +257,13 @@ export default function ExecutionDetail() {
 
       {/* Result */}
       {execution.result && (
-        <Card className="mb-6">
+        <Card>
           <CardHeader title="Result" />
           <pre className="bg-gray-50 p-4 rounded-lg overflow-auto text-sm max-h-96">
             {typeof execution.result === 'string' 
               ? execution.result 
               : JSON.stringify(execution.result, null, 2)}
           </pre>
-        </Card>
-      )}
-
-      {/* Logs */}
-      {execution.logs && (
-        <Card>
-          <CardHeader title="Execution Logs" />
-          <pre className="bg-gray-900 text-green-400 p-4 rounded-lg overflow-auto text-sm max-h-96 font-mono">
-            {execution.logs}
-          </pre>
-        </Card>
-      )}
-
-      {/* Running indicator */}
-      {execution.status === 'running' && (
-        <Card className="mt-6">
-          <div className="flex items-center gap-3">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-            <p className="text-gray-600">Execution in progress... Refreshing automatically.</p>
-          </div>
         </Card>
       )}
     </MainLayout>
