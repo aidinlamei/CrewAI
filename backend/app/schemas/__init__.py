@@ -6,6 +6,7 @@ from app.schemas.task import *
 from app.schemas.tool import *
 from app.schemas.llm_provider import *
 from app.schemas.execution import *
+from app.schemas.memory import *  # ← ADD THIS LINE
 
 __all__ = [
     # Common
@@ -47,4 +48,8 @@ __all__ = [
     'ExecutionResponse',
     'ExecutionDetailResponse',
     'ExecutionLogResponse',
+    # Memory
+    'MemoryEntryResponse',
+    'MemorySearchRequest',
+    'MemorySearchResponse',
 ]
