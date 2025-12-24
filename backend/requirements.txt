@@ -34,6 +34,9 @@ python-docx==1.1.0
 reportlab==4.0.8
 PyPDF2==3.0.1
 
+# Memory
+mem0ai==0.0.9
+
 # Background tasks
 celery==5.3.4
 redis==5.0.1

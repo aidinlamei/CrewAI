@@ -4,14 +4,24 @@ A comprehensive web-based management system for designing, configuring, and exec
 
 ## Features
 
+### Core Features
 - **Visual Project Management**: Create and manage CrewAI projects through an intuitive web interface
 - **Agent Configuration**: Design and configure AI agents with custom roles, goals, and backstories
 - **Task Orchestration**: Define tasks, set dependencies, and assign agents
 - **Universal LLM Support**: Integrate with any LLM provider (OpenAI, Anthropic, Google, Ollama, etc.) via LiteLLM
 - **Tool Library**: Access built-in tools and create custom tools with Python
-- **Real-time Execution**: Execute crews and monitor progress in real-time
-- **Token Tracking**: Track token usage and estimate costs across executions
 - **Project Templates**: Quick-start with pre-built templates for common use cases
+
+### New Advanced Features ✨
+- **Real-time Execution Logs**: Monitor crew execution with live WebSocket updates
+- **Background Task Processing**: Asynchronous execution using Celery for better performance
+- **LangChain Tool Integration**: Full integration with DuckDuckGo Search, Wikipedia, and custom tools
+- **Mem0 Memory System**: Agent memory management with search and context retrieval
+- **Token Usage Dashboard**: Comprehensive analytics with charts (usage over time, by agent, by model)
+- **Visual Flow Designer**: Interactive workflow visualization using React Flow
+- **Multi-Format Export**: Export execution results to Excel, Word, and PDF
+- **Monaco Code Editor**: Professional code editing for custom tools
+- **Execution Detail View**: Comprehensive execution logs, status, and results viewer
 
 ## Technology Stack
 
@@ -204,15 +214,27 @@ For issues and questions:
 - GitHub Issues: [Create an issue]
 - Documentation: See SETUP.md for detailed setup instructions
 
+## Recent Updates (v1.0.0)
+
+✅ **Completed Features:**
+- Real-time execution monitoring with WebSocket
+- Celery background task processing
+- LangChain tools integration (DuckDuckGo, Wikipedia)
+- Mem0 memory management system
+- Token usage analytics dashboard
+- React Flow visual designer
+- Export to Excel/Word/PDF
+- Comprehensive execution logs viewer
+
 ## Roadmap
 
 - [ ] Multi-user authentication
-- [ ] Advanced flow designer
-- [ ] Memory management UI
 - [ ] Custom tool marketplace
 - [ ] Export to Python code
 - [ ] Scheduling and automation
 - [ ] Team collaboration features
+- [ ] Advanced workflow conditions
+- [ ] Email notifications for execution completion
 
 ## Version
 
