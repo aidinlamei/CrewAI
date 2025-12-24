@@ -8,9 +8,32 @@ from app.utils.logger import logger
 from app.utils.exceptions import ToolExecutionError, ValidationError
 from app.utils.validators import validate_python_code
 
+# Import LangChain tools
+try:
+    from langchain.tools import DuckDuckGoSearchRun
+    from langchain_community.utilities import WikipediaAPIWrapper
+    from langchain.tools import WikipediaQueryRun
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    logger.warning("LangChain tools not available")
+    LANGCHAIN_AVAILABLE = False
+
 
 class ToolService:
     """Service for managing tools."""
+
+    def __init__(self):
+        """Initialize tool service with LangChain tools."""
+        self.langchain_tools = {}
+        if LANGCHAIN_AVAILABLE:
+            try:
+                self.langchain_tools['duckduckgo_search'] = DuckDuckGoSearchRun()
+                self.langchain_tools['wikipedia'] = WikipediaQueryRun(
+                    api_wrapper=WikipediaAPIWrapper()
+                )
+                logger.info("LangChain tools initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize LangChain tools: {e}")
 
     @staticmethod
     def get_tool(db: Session, tool_id: str) -> Optional[Tool]:
@@ -90,13 +113,13 @@ class ToolService:
         logger.info(f"Created custom tool: {name}")
         return tool
 
-    @staticmethod
     def execute_tool(
+        self,
         tool: Tool,
         parameters: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Execute a tool (placeholder for actual implementation).
+        Execute a tool with given parameters.
 
         Args:
             tool: Tool to execute
@@ -104,38 +127,89 @@ class ToolService:
 
         Returns:
             Execution result
-
-        Raises:
-            ToolExecutionError: If execution fails
         """
         try:
-            # This is a placeholder - actual implementation would:
-            # 1. Load the appropriate tool (LangChain, custom, etc.)
-            # 2. Execute with parameters
-            # 3. Return results
+            logger.info(f"Executing tool: {tool.name} (type: {tool.type})")
 
-            if tool.type == "custom":
-                # Execute custom Python code
-                # WARNING: This should be sandboxed in production
-                logger.warning("Custom tool execution not fully implemented")
-                return {"result": "Custom tool execution placeholder"}
-
-            elif tool.type == "langchain":
-                # Execute LangChain tool
-                logger.warning("LangChain tool execution not fully implemented")
-                return {"result": "LangChain tool execution placeholder"}
-
+            if tool.type == "langchain":
+                return self._execute_langchain_tool(tool, parameters)
+            elif tool.type == "custom":
+                return self._execute_custom_tool(tool, parameters)
             elif tool.type == "built-in":
-                # Execute built-in tool
-                logger.warning("Built-in tool execution not fully implemented")
-                return {"result": "Built-in tool execution placeholder"}
-
+                return self._execute_builtin_tool(tool, parameters)
             else:
                 raise ToolExecutionError(f"Unknown tool type: {tool.type}")
 
         except Exception as e:
             logger.error(f"Tool execution failed: {str(e)}")
             raise ToolExecutionError(f"Tool execution failed: {str(e)}")
+
+    def _execute_langchain_tool(self, tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a LangChain tool."""
+        if not LANGCHAIN_AVAILABLE:
+            raise ToolExecutionError("LangChain tools not available")
+
+        # Map tool names to internal keys
+        tool_map = {
+            'DuckDuckGo Search': 'duckduckgo_search',
+            'Wikipedia': 'wikipedia',
+        }
+
+        tool_key = tool_map.get(tool.name)
+        if not tool_key or tool_key not in self.langchain_tools:
+            raise ToolExecutionError(f"LangChain tool not found: {tool.name}")
+
+        langchain_tool = self.langchain_tools[tool_key]
+
+        # Get query parameter
+        query = parameters.get('query') or parameters.get('input') or parameters.get('q')
+        if not query:
+            raise ToolExecutionError("Query parameter required (use 'query', 'input', or 'q')")
+
+        # Execute
+        result = langchain_tool.run(query)
+
+        return {
+            "success": True,
+            "result": result,
+            "tool": tool.name,
+        }
+
+    def _execute_custom_tool(self, tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a custom Python tool."""
+        if not tool.python_code:
+            raise ToolExecutionError("No Python code defined for custom tool")
+
+        try:
+            namespace = {'parameters': parameters}
+            exec(tool.python_code, namespace)
+
+            # Look for callable
+            if tool.name in namespace and callable(namespace[tool.name]):
+                result = namespace[tool.name](**parameters)
+            elif 'run' in namespace and callable(namespace['run']):
+                result = namespace['run'](**parameters)
+            else:
+                raise ToolExecutionError("No callable function found")
+
+            return {
+                "success": True,
+                "result": result,
+                "tool": tool.name,
+            }
+
+        except Exception as e:
+            raise ToolExecutionError(f"Custom tool execution failed: {str(e)}")
+
+    def _execute_builtin_tool(self, tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a built-in tool."""
+        # For now, return a placeholder
+        # In the future, implement actual built-in tools
+        return {
+            "success": True,
+            "result": f"Built-in tool {tool.name} executed",
+            "tool": tool.name,
+        }
 
     @staticmethod
     def get_tool_categories(db: Session) -> List[str]:

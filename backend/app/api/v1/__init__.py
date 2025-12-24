@@ -1,6 +1,6 @@
 """API v1 package."""
 from fastapi import APIRouter
-from app.api.v1 import initialize, projects, agents, tasks, tools, llm_providers, executions
+from app.api.v1 import initialize, projects, agents, tasks, tools, llm_providers, executions, memory, websockets
 
 api_router = APIRouter()
 
@@ -14,3 +14,5 @@ api_router.include_router(
     llm_providers.router, prefix="/llm-providers", tags=["llm-providers"]
 )
 api_router.include_router(executions.router, prefix="", tags=["executions"])
+api_router.include_router(memory.router, prefix="", tags=["memory"])
+api_router.include_router(websockets.router, prefix="", tags=["websockets"])
