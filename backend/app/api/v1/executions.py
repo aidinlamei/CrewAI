@@ -8,7 +8,7 @@ from typing import List
 from uuid import UUID
 from datetime import datetime
 from app.api.deps import get_db
-from app.models import Execution
+from app.models import Execution, Project
 from app.schemas import ExecutionCreate, ExecutionResponse, MessageResponse
 from app.tasks.crew_tasks import execute_crew_task
 from app.services.export_service import export_service
@@ -34,11 +34,11 @@ async def execute_project(
     # Create execution record
     execution = Execution(
         project_id=project_id,
-        input_data=execution_data.input_data,
-        output_format=execution_data.output_format,
+        input_data=execution_data.input_data or {},
+        output_format=execution_data.output_format or "json",
         status="pending",
     )
-
+    
     db.add(execution)
     db.commit()
     db.refresh(execution)
@@ -70,6 +70,13 @@ def cancel_execution(execution_id: UUID, db: Session = Depends(get_db)):
     if execution.status in ["completed", "failed", "cancelled"]:
         raise HTTPException(status_code=400, detail="Execution already finished")
 
+    # Try to cancel Celery task
+    try:
+        from app.tasks.crew_tasks import cancel_execution_task
+        cancel_execution_task.delay(str(execution_id))
+    except Exception:
+        pass
+    
     execution.status = "cancelled"
     execution.completed_at = datetime.utcnow()
     db.commit()

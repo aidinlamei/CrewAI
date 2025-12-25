@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import engine, Base
 from app.api.v1 import api_router
+from app.websockets import execution_ws_router
 from app.utils.logger import logger
 
 # Create database tables
@@ -29,6 +30,9 @@ app.add_middleware(
 
 # Include API router
 app.include_router(api_router, prefix="/api/v1")
+
+# Include WebSocket router
+app.include_router(execution_ws_router, prefix="/api/v1")
 
 
 @app.get("/")
