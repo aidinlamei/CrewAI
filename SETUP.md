@@ -72,6 +72,8 @@ This will start:
 - Redis on port 6379
 - Backend API on port 8000
 - Frontend on port 5173
+- Celery Worker (for background tasks)
+- Celery Beat (for scheduled tasks)
 
 ### Step 4: Verify Services
 
@@ -213,9 +215,16 @@ Frontend should now be running at http://localhost:5173
 
 The initialization process:
 
-1. **Creates Database Tables**: All required tables and indexes
-2. **Adds Default Tools**: Web search, Wikipedia, File reader, etc.
-3. **Creates Templates**: Research Assistant, Content Writer, etc.
+1. **Creates Database Tables**: All required tables and indexes (11 models total)
+2. **Adds Default Tools**: Web search, Wikipedia, File reader, Code analyzer, etc.
+3. **Creates Templates**: Research Assistant, Content Writer, Data Analyst, etc.
+4. **Sets up Memory Storage**: Initializes ChromaDB for Mem0 vector storage
+5. **Configures Celery**: Sets up background task processing
+
+**Database Models Created:**
+- Projects, Agents, Tasks, Tools
+- LLM Providers, Executions, Execution Tasks
+- Memory Entries, Token Usage, Templates, Users
 
 You only need to initialize once. If you reset the database, you'll need to initialize again.
 
@@ -247,6 +256,14 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_API_KEY=...
+
+# Mem0 Configuration (optional)
+MEM0_ENABLED=True
+CHROMA_DB_PATH=./chroma_db
+
+# Celery Configuration
+CELERY_BROKER_URL=redis://localhost:6379/0
+CELERY_RESULT_BACKEND=redis://localhost:6379/0
 ```
 
 ### Frontend Configuration
@@ -471,7 +488,10 @@ After successful setup:
 2. **Create Project**: Start with a template or create from scratch
 3. **Add Agents**: Configure AI agents with roles and goals
 4. **Define Tasks**: Create tasks and assign to agents
-5. **Execute**: Run your first crew and monitor results
+5. **Add Tools**: Use built-in tools or create custom tools with Monaco Editor
+6. **Execute**: Run your first crew and monitor real-time progress via WebSocket
+7. **View Results**: Export results to Excel, Word, PDF or analyze token usage
+8. **Review Memory**: Check agent memories and semantic search capabilities
 
 ## Support
 

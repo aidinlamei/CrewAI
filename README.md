@@ -4,32 +4,45 @@ A comprehensive web-based management system for designing, configuring, and exec
 
 ## Features
 
+### Core Features
 - **Visual Project Management**: Create and manage CrewAI projects through an intuitive web interface
 - **Agent Configuration**: Design and configure AI agents with custom roles, goals, and backstories
 - **Task Orchestration**: Define tasks, set dependencies, and assign agents
 - **Universal LLM Support**: Integrate with any LLM provider (OpenAI, Anthropic, Google, Ollama, etc.) via LiteLLM
-- **Tool Library**: Access built-in tools and create custom tools with Python
-- **Real-time Execution**: Execute crews and monitor progress in real-time
-- **Token Tracking**: Track token usage and estimate costs across executions
+- **Tool Library**: Access built-in tools and create custom tools with Python using Monaco Editor
 - **Project Templates**: Quick-start with pre-built templates for common use cases
+
+### Advanced Features (New!)
+- **Real-time Execution**: Execute crews with live WebSocket updates and progress monitoring
+- **Memory Management**: AI agent memory with Mem0 integration - semantic search and context retention
+- **Token Analytics**: Track token usage with interactive Recharts visualizations and cost estimation
+- **Multi-format Export**: Export execution results to JSON, Markdown, HTML, Excel, Word, and PDF
+- **Background Processing**: Celery + Redis for async task execution
+- **Visual Flow Designer**: React Flow based project visualization with drag-and-drop interface
+- **Code Editor**: Monaco Editor integration for custom Python tool development
 
 ## Technology Stack
 
 ### Backend
-- **FastAPI** - Modern Python web framework
+- **FastAPI** - Modern Python web framework with WebSocket support
 - **PostgreSQL** - Robust relational database
 - **SQLAlchemy** - ORM for database operations
-- **CrewAI** - AI agent orchestration framework
-- **LiteLLM** - Universal LLM provider integration
-- **Celery + Redis** - Background task processing
+- **CrewAI 0.22.5** - AI agent orchestration framework
+- **LiteLLM** - Universal LLM provider integration (OpenAI, Anthropic, Google, etc.)
+- **Celery + Redis** - Background task processing and message queue
+- **Mem0** - AI memory management with vector storage (ChromaDB)
+- **Alembic** - Database migrations
 
 ### Frontend
 - **React 18** - Modern UI framework
 - **TypeScript** - Type-safe development
-- **Vite** - Fast build tool
+- **Vite** - Fast build tool and HMR
 - **Tailwind CSS** - Utility-first styling
-- **React Query** - Data fetching and caching
-- **Zustand** - State management
+- **React Query (TanStack Query)** - Data fetching, caching, and synchronization
+- **Zustand** - Lightweight state management
+- **Monaco Editor** - VS Code-powered code editor
+- **Recharts** - Composable charting library
+- **React Flow** - Interactive node-based UI
 
 ## Quick Start
 
@@ -125,11 +138,19 @@ Interactive API documentation is available at:
 
 ### Key Endpoints
 
+**Core APIs:**
 - `POST /api/v1/initialize` - Initialize system
 - `GET /api/v1/projects` - List projects
 - `POST /api/v1/projects` - Create project
 - `GET /api/v1/llm-providers` - List LLM providers
 - `POST /api/v1/projects/{id}/execute` - Execute project
+
+**Advanced APIs:**
+- `GET /api/v1/agents/{id}/memory` - Get agent memories
+- `POST /api/v1/agents/{id}/memory/search` - Semantic memory search
+- `GET /api/v1/token-usage?range=7d` - Token usage statistics
+- `GET /api/v1/executions/{id}/export?format=excel` - Export results (excel/word/pdf/json/html/markdown)
+- `WS /ws/execution/{id}` - WebSocket for real-time execution updates
 
 ## Development
 
@@ -206,17 +227,46 @@ For issues and questions:
 
 ## Roadmap
 
-- [ ] Multi-user authentication
-- [ ] Advanced flow designer
-- [ ] Memory management UI
+**Completed in v1.0:**
+- [x] Real-time execution with WebSocket
+- [x] Memory management UI with Mem0
+- [x] Visual flow designer with React Flow
+- [x] Multi-format export (Excel, Word, PDF)
+- [x] Token usage analytics with charts
+- [x] Background task processing with Celery
+- [x] Monaco code editor for custom tools
+
+**Planned for v2.0:**
+- [ ] Multi-user authentication and RBAC
 - [ ] Custom tool marketplace
-- [ ] Export to Python code
-- [ ] Scheduling and automation
+- [ ] Export project to standalone Python code
+- [ ] Scheduled/recurring executions
 - [ ] Team collaboration features
+- [ ] Agent performance benchmarking
+- [ ] Dark mode UI theme
 
-## Version
+## Version History
 
-Current Version: 1.0.0
+**v1.0.0** (Current) - December 2024
+- Initial release with full CrewAI management features
+- Memory management with Mem0 integration
+- Advanced export capabilities (6 formats)
+- Real-time execution monitoring
+- Visual flow designer
+- Token usage analytics
+
+## Dependencies
+
+Key dependencies and their versions:
+- CrewAI: 0.22.5
+- FastAPI: 0.109.0
+- React: 18.x
+- Mem0: 0.0.9
+- ChromaDB: 0.4.22
+- Celery: 5.3.4
+- LiteLLM: 1.17.9
+
+For complete dependency list, see `backend/requirements.txt` and `frontend/package.json`
 
 ## Authors
 
