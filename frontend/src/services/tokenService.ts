@@ -1,37 +1,18 @@
-import api from './api'
-
-export interface DailyUsage {
-  date: string
-  tokens: number
-  cost: number
-}
-
-export interface ModelUsage {
-  model: string
-  total_tokens: number
-  total_cost: number
-  executions: number
-}
-
-export interface TokenUsageData {
-  total_tokens: number
-  prompt_tokens: number
-  completion_tokens: number
-  total_cost: number
-  daily_usage: DailyUsage[]
-  by_model: ModelUsage[]
-}
+import api from './api';
 
 export const tokenService = {
-  async getUsage(dateRange: '7d' | '30d' | '90d' = '7d'): Promise<TokenUsageData> {
-    const response = await api.get('/token-usage', {
-      params: { range: dateRange },
-    })
-    return response.data
+  async getUsage() {
+    const { data } = await api.get('/token-usage');
+    return data;
   },
 
-  async getByExecution(executionId: string): Promise<TokenUsageData> {
-    const response = await api.get(`/executions/${executionId}/token-usage`)
-    return response.data
+  async getUsageByProject(projectId: string) {
+    const { data } = await api.get(`/projects/${projectId}/token-usage`);
+    return data;
   },
-}
+
+  async getUsageByAgent(agentId: string) {
+    const { data } = await api.get(`/agents/${agentId}/token-usage`);
+    return data;
+  },
+};

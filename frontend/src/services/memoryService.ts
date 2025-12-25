@@ -1,37 +1,28 @@
-import api from './api'
-
-export interface Memory {
-  id: string
-  agent_id: string
-  execution_id?: string
-  memory_type: 'short_term' | 'long_term'
-  content: string
-  metadata?: Record<string, any>
-  created_at: string
-}
-
-export interface MemorySearchResponse {
-  results: Memory[]
-  total: number
-}
+import api from './api';
 
 export const memoryService = {
-  async list(agentId: string, memoryType?: string): Promise<Memory[]> {
-    const params = memoryType ? { memory_type: memoryType } : {}
-    const response = await api.get(`/agents/${agentId}/memory`, { params })
-    return response.data
+  async list(agentId: string, memoryType?: string, limit = 10) {
+    const { data } = await api.get(`/agents/${agentId}/memory`, {
+      params: { memory_type: memoryType, limit },
+    });
+    return data;
   },
 
-  async search(agentId: string, query: string, limit?: number): Promise<MemorySearchResponse> {
-    const response = await api.post(
-      `/agents/${agentId}/memory/search`,
-      { query, limit }
-    )
-    return response.data
+  async create(agentId: string, memoryData: any) {
+    const { data } = await api.post(`/agents/${agentId}/memory`, memoryData);
+    return data;
   },
 
-  async clear(agentId: string, memoryType?: string): Promise<void> {
-    const params = memoryType ? { memory_type: memoryType } : {}
-    await api.delete(`/agents/${agentId}/memory`, { params })
+  async search(agentId: string, query: string, limit = 5) {
+    const { data } = await api.post(`/agents/${agentId}/memory/search`, {
+      query,
+      limit,
+    });
+    return data;
   },
-}
+
+  async clear(agentId: string) {
+    const { data } = await api.delete(`/agents/${agentId}/memory`);
+    return data;
+  },
+};

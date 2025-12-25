@@ -2,6 +2,7 @@
 Executions API endpoints.
 """
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
@@ -9,26 +10,18 @@ from datetime import datetime
 from app.api.deps import get_db
 from app.models import Execution, Project
 from app.schemas import ExecutionCreate, ExecutionResponse, MessageResponse
+from app.tasks.crew_tasks import execute_crew_task
+from app.services.export_service import export_service
 from app.utils.logger import logger
 
 router = APIRouter()
 
 
-@router.get("/executions", response_model=List[ExecutionResponse])
-def list_executions(
-    project_id: UUID = None,
-    status: str = None,
-    db: Session = Depends(get_db),
-):
-    """List all executions with optional filters."""
-    query = db.query(Execution).order_by(Execution.created_at.desc())
-    
-    if project_id:
-        query = query.filter(Execution.project_id == project_id)
-    if status:
-        query = query.filter(Execution.status == status)
-    
-    return query.all()
+@router.get("/", response_model=List[ExecutionResponse])
+def list_executions(db: Session = Depends(get_db)):
+    """List all executions."""
+    executions = db.query(Execution).order_by(Execution.created_at.desc()).all()
+    return executions
 
 
 @router.post("/projects/{project_id}/execute", response_model=ExecutionResponse)
@@ -37,17 +30,7 @@ async def execute_project(
     execution_data: ExecutionCreate,
     db: Session = Depends(get_db),
 ):
-    """
-    Execute a project.
-    
-    This creates an execution record and starts the crew in the background.
-    Use WebSocket to receive real-time updates.
-    """
-    # Verify project exists
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    
+    """Execute a project using Celery."""
     # Create execution record
     execution = Execution(
         project_id=project_id,
@@ -59,47 +42,12 @@ async def execute_project(
     db.add(execution)
     db.commit()
     db.refresh(execution)
-    
-    logger.info(f"Created execution {execution.id} for project {project_id}")
-    
-    # Try to use Celery, fall back to sync execution
-    try:
-        from app.tasks.crew_tasks import execute_crew_task
-        
-        # Start Celery task
-        execute_crew_task.delay(str(execution.id))
-        logger.info(f"Started Celery task for execution {execution.id}")
-        
-    except Exception as e:
-        logger.warning(f"Celery not available, running sync: {str(e)}")
-        
-        # Fall back to synchronous execution
-        from app.services.crew_service import crew_service
-        import asyncio
-        
-        try:
-            execution.status = "running"
-            execution.started_at = datetime.utcnow()
-            db.commit()
-            
-            # Build and execute crew
-            crew = await crew_service.build_crew(db, project_id, execution.input_data)
-            result = await crew_service.execute_crew(crew, execution.input_data)
-            
-            # Update execution
-            execution.status = "completed"
-            execution.result = {"output": result.get("result", "")}
-            execution.completed_at = datetime.utcnow()
-            db.commit()
-            
-        except Exception as exec_error:
-            execution.status = "failed"
-            execution.error_message = str(exec_error)
-            execution.completed_at = datetime.utcnow()
-            db.commit()
-            logger.error(f"Execution {execution.id} failed: {str(exec_error)}")
-    
-    db.refresh(execution)
+
+    # Execute in background using Celery
+    execute_crew_task.delay(execution_id=str(execution.id))
+
+    logger.info(f"Started execution {execution.id} for project {project_id}")
+
     return execution
 
 
@@ -136,120 +84,76 @@ def cancel_execution(execution_id: UUID, db: Session = Depends(get_db)):
     return MessageResponse(message="Execution cancelled successfully")
 
 
-@router.get("/executions/{execution_id}/logs")
-def get_execution_logs(execution_id: UUID, db: Session = Depends(get_db)):
-    """Get execution logs."""
+@router.get("/executions/{execution_id}/export/excel")
+async def export_execution_excel(execution_id: UUID, db: Session = Depends(get_db)):
+    """Export execution to Excel."""
     execution = db.query(Execution).filter(Execution.id == execution_id).first()
     if not execution:
         raise HTTPException(status_code=404, detail="Execution not found")
-    
-    return {
-        "execution_id": str(execution_id),
-        "logs": execution.logs or "",
-        "status": execution.status,
-    }
 
-
-@router.get("/executions/{execution_id}/export")
-def export_execution(
-    execution_id: UUID,
-    format: str = "json",
-    db: Session = Depends(get_db),
-):
-    """
-    Export execution result.
-    
-    Supported formats: json, markdown, html, excel, word, pdf
-    """
-    from fastapi.responses import Response, StreamingResponse
-    from app.services.export_service import export_service
-    
-    execution = db.query(Execution).filter(Execution.id == execution_id).first()
-    if not execution:
-        raise HTTPException(status_code=404, detail="Execution not found")
-    
-    # Convert to dict
-    exec_data = {
-        "id": str(execution.id),
+    data = {
         "Execution ID": str(execution.id),
-        "project_id": str(execution.project_id),
-        "status": execution.status,
         "Status": execution.status,
-        "input_data": execution.input_data,
-        "output_format": execution.output_format,
-        "result": execution.result,
-        "Result": execution.result,
-        "logs": execution.logs,
-        "Logs": execution.logs,
-        "error_message": execution.error_message,
-        "tokens_used": execution.tokens_used,
-        "Tokens Used": execution.tokens_used,
-        "estimated_cost": str(execution.estimated_cost) if execution.estimated_cost else "0",
-        "Estimated Cost": float(execution.estimated_cost) if execution.estimated_cost else 0,
-        "started_at": execution.started_at.isoformat() if execution.started_at else None,
-        "Started At": execution.started_at.isoformat() if execution.started_at else "Not started",
-        "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
-        "Completed At": execution.completed_at.isoformat() if execution.completed_at else "Not completed",
-        "created_at": execution.created_at.isoformat() if execution.created_at else None,
-        "Created At": execution.created_at.isoformat() if execution.created_at else None,
+        "Result": str(execution.result),
+        "Created At": str(execution.created_at),
     }
-    
-    if format == "json":
-        content = export_service.to_json(exec_data)
-        return Response(
-            content=content,
-            media_type="application/json",
-            headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.json"}
-        )
-    
-    elif format == "markdown":
-        content = export_service.to_markdown(exec_data)
-        return Response(
-            content=content,
-            media_type="text/markdown",
-            headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.md"}
-        )
-    
-    elif format == "html":
-        content = export_service.to_html(exec_data)
-        return Response(
-            content=content,
-            media_type="text/html",
-            headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.html"}
-        )
-    
-    elif format == "excel":
-        try:
-            buffer = export_service.export_to_excel(exec_data)
-            return StreamingResponse(
-                buffer,
-                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"}
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    elif format == "word":
-        try:
-            buffer = export_service.export_to_word(exec_data)
-            return StreamingResponse(
-                buffer,
-                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"}
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    elif format == "pdf":
-        try:
-            buffer = export_service.export_to_pdf(exec_data)
-            return StreamingResponse(
-                buffer,
-                media_type="application/pdf",
-                headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"}
-            )
-        except ValueError as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported format: {format}. Supported: json, markdown, html, excel, word, pdf")
+
+    buffer = export_service.export_to_excel(data)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"
+        },
+    )
+
+
+@router.get("/executions/{execution_id}/export/word")
+async def export_execution_word(execution_id: UUID, db: Session = Depends(get_db)):
+    """Export execution to Word."""
+    execution = db.query(Execution).filter(Execution.id == execution_id).first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+
+    data = {
+        "Execution ID": str(execution.id),
+        "Status": execution.status,
+        "Result": execution.result,
+        "Created At": str(execution.created_at),
+    }
+
+    buffer = export_service.export_to_word(data)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={
+            "Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"
+        },
+    )
+
+
+@router.get("/executions/{execution_id}/export/pdf")
+async def export_execution_pdf(execution_id: UUID, db: Session = Depends(get_db)):
+    """Export execution to PDF."""
+    execution = db.query(Execution).filter(Execution.id == execution_id).first()
+    if not execution:
+        raise HTTPException(status_code=404, detail="Execution not found")
+
+    data = {
+        "Execution ID": str(execution.id),
+        "Status": execution.status,
+        "Result": str(execution.result),
+        "Created At": str(execution.created_at),
+    }
+
+    buffer = export_service.export_to_pdf(data)
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"
+        },
+    )

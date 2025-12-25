@@ -36,7 +36,6 @@ PyPDF2==3.0.1
 
 # Memory
 mem0ai==0.0.9
-chromadb==0.4.22
 
 # Background tasks
 celery==5.3.4

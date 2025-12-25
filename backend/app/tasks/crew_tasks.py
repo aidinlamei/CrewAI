@@ -1,132 +1,133 @@
 """
 Celery tasks for crew execution.
 """
-from celery import Task
-from datetime import datetime
-from uuid import UUID
 import asyncio
+from celery import Task
+from sqlalchemy.orm import Session
+from datetime import datetime
 from app.tasks.celery_app import celery_app
 from app.database import SessionLocal
 from app.models import Execution
+from app.services.crew_service import crew_service
+from app.websockets.execution_ws import ws_manager
 from app.utils.logger import logger
 
 
 class ExecutionTask(Task):
-    """Base task for execution with error handling."""
-    
+    """Base task for crew execution."""
+
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
-        execution_id = kwargs.get('execution_id') or (args[0] if args else None)
+        execution_id = kwargs.get("execution_id")
         if execution_id:
             db = SessionLocal()
             try:
-                execution = db.query(Execution).filter(
-                    Execution.id == execution_id
-                ).first()
-                
+                execution = (
+                    db.query(Execution)
+                    .filter(Execution.id == execution_id)
+                    .first()
+                )
                 if execution:
                     execution.status = "failed"
                     execution.error_message = str(exc)
                     execution.completed_at = datetime.utcnow()
                     db.commit()
-            except Exception as e:
-                logger.error(f"Failed to update execution on failure: {e}")
+
+                    # Send error via WebSocket
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    loop.run_until_complete(
+                        ws_manager.send_error(str(execution_id), str(exc))
+                    )
+                    loop.close()
             finally:
                 db.close()
 
 
-@celery_app.task(base=ExecutionTask, bind=True, name="execute_crew_task")
+@celery_app.task(base=ExecutionTask, bind=True)
 def execute_crew_task(self, execution_id: str):
     """
-    Execute a crew in background using Celery.
-    
+    Execute a crew in background.
+
     Args:
-        execution_id: UUID of the execution
+        execution_id: Execution ID
     """
     db = SessionLocal()
-    
+
     try:
-        execution = db.query(Execution).filter(
-            Execution.id == execution_id
-        ).first()
-        
+        # Get execution
+        execution = (
+            db.query(Execution).filter(Execution.id == execution_id).first()
+        )
         if not execution:
-            logger.error(f"Execution {execution_id} not found")
-            return {"error": "Execution not found"}
-        
+            raise ValueError(f"Execution {execution_id} not found")
+
+        # Update status
         execution.status = "running"
         execution.started_at = datetime.utcnow()
         db.commit()
-        
-        logger.info(f"Starting execution {execution_id}")
-        
-        # Import here to avoid circular imports
-        from app.services.crew_service import crew_service
-        
+
+        # Send status via WebSocket
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(
+            ws_manager.send_status(execution_id, "running")
+        )
+        loop.run_until_complete(
+            ws_manager.send_log(execution_id, "log", "Building crew...")
+        )
+
         # Build crew
-        crew = crew_service.build_crew(
-            db=db,
-            project_id=execution.project_id,
-            input_data=execution.input_data,
+        logger.info(f"Building crew for execution {execution_id}")
+
+        crew = loop.run_until_complete(
+            crew_service.build_crew(
+                db, str(execution.project_id), execution.input_data or {}
+            )
         )
-        
+
         # Execute crew
-        result = crew_service.execute_crew(
-            crew=crew,
-            input_data=execution.input_data,
+        logger.info(f"Executing crew for execution {execution_id}")
+        loop.run_until_complete(
+            ws_manager.send_log(execution_id, "log", "Executing crew...")
         )
-        
-        # Update execution with results
+
+        result = loop.run_until_complete(
+            crew_service.execute_crew(crew, execution.input_data or {})
+        )
+
+        # Update execution with result
         execution.status = "completed"
-        execution.result = {"output": result.get("result", str(result))}
+        execution.result = {"output": result.get("result", "")}
         execution.completed_at = datetime.utcnow()
-        
-        # Update token usage if available
-        if result.get("tokens_used"):
-            execution.tokens_used = result["tokens_used"]
-        if result.get("estimated_cost"):
-            execution.estimated_cost = result["estimated_cost"]
-            
         db.commit()
-        
+
+        # Send result via WebSocket
+        loop.run_until_complete(
+            ws_manager.send_result(execution_id, execution.result)
+        )
+        loop.run_until_complete(
+            ws_manager.send_status(execution_id, "completed")
+        )
+        loop.close()
+
         logger.info(f"Execution {execution_id} completed successfully")
-        return {"status": "completed", "result": execution.result}
-        
+
+        return {"status": "completed", "execution_id": execution_id}
+
     except Exception as e:
         logger.error(f"Execution {execution_id} failed: {str(e)}")
-        
-        execution = db.query(Execution).filter(
-            Execution.id == execution_id
-        ).first()
-        
+
+        execution = (
+            db.query(Execution).filter(Execution.id == execution_id).first()
+        )
         if execution:
             execution.status = "failed"
             execution.error_message = str(e)
             execution.completed_at = datetime.utcnow()
             db.commit()
-        
+
         raise
-        
-    finally:
-        db.close()
 
-
-@celery_app.task(name="cancel_execution_task")
-def cancel_execution_task(execution_id: str):
-    """Cancel a running execution."""
-    db = SessionLocal()
-    try:
-        execution = db.query(Execution).filter(
-            Execution.id == execution_id
-        ).first()
-        
-        if execution and execution.status in ["pending", "running"]:
-            execution.status = "cancelled"
-            execution.completed_at = datetime.utcnow()
-            db.commit()
-            logger.info(f"Execution {execution_id} cancelled")
-            return {"status": "cancelled"}
-        
-        return {"status": "not_found_or_completed"}
     finally:
         db.close()

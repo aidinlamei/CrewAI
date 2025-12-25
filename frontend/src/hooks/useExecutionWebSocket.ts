@@ -1,139 +1,77 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
 
-interface WebSocketMessage {
-  type: 'status_update' | 'log' | 'error' | 'result'
-  status?: string
-  message?: string
-  error?: string
-  result?: any
+interface LogMessage {
+  type: string;
+  message: string;
+  timestamp: string;
 }
 
-interface UseExecutionWebSocketOptions {
-  executionId: string
-  enabled?: boolean
-  onLog?: (log: string) => void
-  onStatusChange?: (status: string) => void
-  onResult?: (result: any) => void
-  onError?: (error: string) => void
-}
-
-export function useExecutionWebSocket(options: UseExecutionWebSocketOptions | string) {
-  // Handle both object and string argument
-  const config: UseExecutionWebSocketOptions = typeof options === 'string' 
-    ? { executionId: options }
-    : options
-
-  const { executionId, enabled = true, onLog, onStatusChange, onResult, onError } = config
-
-  const [isConnected, setIsConnected] = useState(false)
-  const [status, setStatus] = useState<string | null>(null)
-  const [logs, setLogs] = useState<string[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const wsRef = useRef<WebSocket | null>(null)
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
-
-  // Refs for callbacks to avoid stale closures
-  const onLogRef = useRef(onLog)
-  const onStatusChangeRef = useRef(onStatusChange)
-  const onResultRef = useRef(onResult)
-  const onErrorRef = useRef(onError)
+export function useExecutionWebSocket(executionId: string | null) {
+  const [logs, setLogs] = useState<LogMessage[]>([]);
+  const [status, setStatus] = useState<string>('');
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    onLogRef.current = onLog
-    onStatusChangeRef.current = onStatusChange
-    onResultRef.current = onResult
-    onErrorRef.current = onError
-  }, [onLog, onStatusChange, onResult, onError])
+    if (!executionId) return;
 
-  useEffect(() => {
-    if (!executionId || !enabled) return
+    const ws = new WebSocket(`${WS_URL}/api/v1/ws/execution/${executionId}`);
+    wsRef.current = ws;
 
-    const connect = () => {
-      try {
-        const ws = new WebSocket(`${WS_URL}/api/v1/ws/executions/${executionId}`)
-        wsRef.current = ws
+    ws.onopen = () => {
+      setIsConnected(true);
+      console.log('WebSocket connected');
+    };
 
-        ws.onopen = () => {
-          console.log('WebSocket connected for execution:', executionId)
-          setIsConnected(true)
-          setError(null)
-        }
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
 
-        ws.onmessage = (event) => {
-          try {
-            const data: WebSocketMessage = JSON.parse(event.data)
-
-            switch (data.type) {
-              case 'status_update':
-                if (data.status) {
-                  setStatus(data.status)
-                  onStatusChangeRef.current?.(data.status)
-                }
-                break
-
-              case 'log':
-                if (data.message) {
-                  setLogs((prev) => [...prev, data.message!])
-                  onLogRef.current?.(data.message)
-                }
-                break
-
-              case 'result':
-                if (data.result) {
-                  onResultRef.current?.(data.result)
-                }
-                break
-
-              case 'error':
-                if (data.error) {
-                  setError(data.error)
-                  onErrorRef.current?.(data.error)
-                }
-                break
-            }
-          } catch (err) {
-            console.error('Failed to parse WebSocket message:', err)
-          }
-        }
-
-        ws.onerror = (error) => {
-          console.error('WebSocket error:', error)
-          setError('WebSocket connection error')
-          setIsConnected(false)
-        }
-
-        ws.onclose = () => {
-          console.log('WebSocket disconnected')
-          setIsConnected(false)
-          // Attempt to reconnect after 3 seconds if enabled
-          if (enabled) {
-            reconnectTimeoutRef.current = setTimeout(() => {
-              console.log('Attempting to reconnect...')
-              connect()
-            }, 3000)
-          }
-        }
-      } catch (err) {
-        console.error('Failed to create WebSocket:', err)
-        setError('Failed to establish WebSocket connection')
-        setIsConnected(false)
+      switch (data.type) {
+        case 'log':
+          setLogs((prev) => [...prev, data]);
+          break;
+        case 'status':
+          const statusData = JSON.parse(data.message);
+          setStatus(statusData.status);
+          break;
+        case 'task_update':
+          const taskData = JSON.parse(data.message);
+          setLogs((prev) => [
+            ...prev,
+            {
+              type: 'task',
+              message: `Task "${taskData.task}" - ${taskData.status}`,
+              timestamp: data.timestamp,
+            },
+          ]);
+          break;
+        case 'result':
+          setResult(JSON.parse(data.message));
+          break;
+        case 'error':
+          setError(data.message);
+          break;
       }
-    }
+    };
 
-    connect()
+    ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      setError('Connection error');
+    };
 
-    // Cleanup
+    ws.onclose = () => {
+      setIsConnected(false);
+      console.log('WebSocket disconnected');
+    };
+
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current)
-      }
-      if (wsRef.current) {
-        wsRef.current.close()
-      }
-    }
-  }, [executionId, enabled])
+      ws.close();
+    };
+  }, [executionId]);
 
-  return { isConnected, status, logs, error }
+  return { logs, status, result, error, isConnected };
 }

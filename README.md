@@ -9,17 +9,19 @@ A comprehensive web-based management system for designing, configuring, and exec
 - **Agent Configuration**: Design and configure AI agents with custom roles, goals, and backstories
 - **Task Orchestration**: Define tasks, set dependencies, and assign agents
 - **Universal LLM Support**: Integrate with any LLM provider (OpenAI, Anthropic, Google, Ollama, etc.) via LiteLLM
-- **Tool Library**: Access built-in tools and create custom tools with Python using Monaco Editor
+- **Tool Library**: Access built-in tools and create custom tools with Python
 - **Project Templates**: Quick-start with pre-built templates for common use cases
 
-### Advanced Features (New!)
-- **Real-time Execution**: Execute crews with live WebSocket updates and progress monitoring
-- **Memory Management**: AI agent memory with Mem0 integration - semantic search and context retention
-- **Token Analytics**: Track token usage with interactive Recharts visualizations and cost estimation
-- **Multi-format Export**: Export execution results to JSON, Markdown, HTML, Excel, Word, and PDF
-- **Background Processing**: Celery + Redis for async task execution
-- **Visual Flow Designer**: React Flow based project visualization with drag-and-drop interface
-- **Code Editor**: Monaco Editor integration for custom Python tool development
+### New Advanced Features ✨
+- **Real-time Execution Logs**: Monitor crew execution with live WebSocket updates
+- **Background Task Processing**: Asynchronous execution using Celery for better performance
+- **LangChain Tool Integration**: Full integration with DuckDuckGo Search, Wikipedia, and custom tools
+- **Mem0 Memory System**: Agent memory management with search and context retrieval
+- **Token Usage Dashboard**: Comprehensive analytics with charts (usage over time, by agent, by model)
+- **Visual Flow Designer**: Interactive workflow visualization using React Flow
+- **Multi-Format Export**: Export execution results to Excel, Word, and PDF
+- **Monaco Code Editor**: Professional code editing for custom tools
+- **Execution Detail View**: Comprehensive execution logs, status, and results viewer
 
 ## Technology Stack
 
@@ -225,48 +227,31 @@ For issues and questions:
 - GitHub Issues: [Create an issue]
 - Documentation: See SETUP.md for detailed setup instructions
 
+## Recent Updates (v1.0.0)
+
+✅ **Completed Features:**
+- Real-time execution monitoring with WebSocket
+- Celery background task processing
+- LangChain tools integration (DuckDuckGo, Wikipedia)
+- Mem0 memory management system
+- Token usage analytics dashboard
+- React Flow visual designer
+- Export to Excel/Word/PDF
+- Comprehensive execution logs viewer
+
 ## Roadmap
 
-**Completed in v1.0:**
-- [x] Real-time execution with WebSocket
-- [x] Memory management UI with Mem0
-- [x] Visual flow designer with React Flow
-- [x] Multi-format export (Excel, Word, PDF)
-- [x] Token usage analytics with charts
-- [x] Background task processing with Celery
-- [x] Monaco code editor for custom tools
-
-**Planned for v2.0:**
-- [ ] Multi-user authentication and RBAC
+- [ ] Multi-user authentication
 - [ ] Custom tool marketplace
 - [ ] Export project to standalone Python code
 - [ ] Scheduled/recurring executions
 - [ ] Team collaboration features
-- [ ] Agent performance benchmarking
-- [ ] Dark mode UI theme
+- [ ] Advanced workflow conditions
+- [ ] Email notifications for execution completion
 
-## Version History
+## Version
 
-**v1.0.0** (Current) - December 2024
-- Initial release with full CrewAI management features
-- Memory management with Mem0 integration
-- Advanced export capabilities (6 formats)
-- Real-time execution monitoring
-- Visual flow designer
-- Token usage analytics
-
-## Dependencies
-
-Key dependencies and their versions:
-- CrewAI: 0.22.5
-- FastAPI: 0.109.0
-- React: 18.x
-- Mem0: 0.0.9
-- ChromaDB: 0.4.22
-- Celery: 5.3.4
-- LiteLLM: 1.17.9
-
-For complete dependency list, see `backend/requirements.txt` and `frontend/package.json`
+Current Version: 1.0.0
 
 ## Authors
 
