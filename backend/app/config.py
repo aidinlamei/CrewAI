@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ENCRYPTION_KEY: str = "your-encryption-key-for-api-keys"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]

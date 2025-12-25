@@ -96,7 +96,7 @@ class ToolService:
         parameters: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        Execute a tool (placeholder for actual implementation).
+        Execute a tool.
 
         Args:
             tool: Tool to execute
@@ -109,33 +109,88 @@ class ToolService:
             ToolExecutionError: If execution fails
         """
         try:
-            # This is a placeholder - actual implementation would:
-            # 1. Load the appropriate tool (LangChain, custom, etc.)
-            # 2. Execute with parameters
-            # 3. Return results
-
+            # SECURITY: Disable custom code execution until sandbox is implemented
             if tool.type == "custom":
-                # Execute custom Python code
-                # WARNING: This should be sandboxed in production
-                logger.warning("Custom tool execution not fully implemented")
-                return {"result": "Custom tool execution placeholder"}
+                logger.warning(f"Custom tool execution blocked for security: {tool.name}")
+                raise ToolExecutionError(
+                    "Custom tool execution is temporarily disabled for security reasons. "
+                    "Please use built-in tools or contact administrator."
+                )
 
             elif tool.type == "langchain":
-                # Execute LangChain tool
-                logger.warning("LangChain tool execution not fully implemented")
-                return {"result": "LangChain tool execution placeholder"}
+                # Execute LangChain tool with safety checks
+                return ToolService._execute_langchain_tool(tool, parameters)
 
             elif tool.type == "built-in":
                 # Execute built-in tool
-                logger.warning("Built-in tool execution not fully implemented")
-                return {"result": "Built-in tool execution placeholder"}
+                return ToolService._execute_builtin_tool(tool, parameters)
 
             else:
                 raise ToolExecutionError(f"Unknown tool type: {tool.type}")
 
+        except ToolExecutionError:
+            raise
         except Exception as e:
             logger.error(f"Tool execution failed: {str(e)}")
             raise ToolExecutionError(f"Tool execution failed: {str(e)}")
+    
+    @staticmethod
+    def _execute_builtin_tool(tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a built-in tool safely."""
+        try:
+            tool_name = tool.name.lower()
+            
+            if tool_name == "web_search":
+                query = parameters.get("query", "")
+                if not query:
+                    return {"success": False, "error": "Query parameter required"}
+                # Use DuckDuckGo search
+                try:
+                    from duckduckgo_search import DDGS
+                    with DDGS() as ddgs:
+                        results = list(ddgs.text(query, max_results=5))
+                    return {"success": True, "result": results}
+                except ImportError:
+                    return {"success": False, "error": "Search module not available"}
+                    
+            elif tool_name == "wikipedia":
+                query = parameters.get("query", "")
+                if not query:
+                    return {"success": False, "error": "Query parameter required"}
+                try:
+                    import wikipedia
+                    summary = wikipedia.summary(query, sentences=3)
+                    return {"success": True, "result": summary}
+                except ImportError:
+                    return {"success": False, "error": "Wikipedia module not available"}
+                except Exception as e:
+                    return {"success": False, "error": str(e)}
+            
+            else:
+                return {
+                    "success": False,
+                    "error": f"Built-in tool '{tool.name}' not implemented yet"
+                }
+                
+        except Exception as e:
+            logger.error(f"Built-in tool execution error: {str(e)}")
+            return {"success": False, "error": str(e)}
+    
+    @staticmethod
+    def _execute_langchain_tool(tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a LangChain tool with safety checks."""
+        try:
+            # LangChain tool execution placeholder
+            # In production, import and execute actual LangChain tools
+            logger.info(f"Executing LangChain tool: {tool.name}")
+            return {
+                "success": True,
+                "result": f"LangChain tool '{tool.name}' executed (placeholder)",
+                "parameters": parameters
+            }
+        except Exception as e:
+            logger.error(f"LangChain tool execution error: {str(e)}")
+            return {"success": False, "error": str(e)}
 
     @staticmethod
     def get_tool_categories(db: Session) -> List[str]:

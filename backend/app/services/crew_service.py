@@ -61,28 +61,61 @@ class CrewService:
             agent_map = {}
 
             for agent in agents:
-                # Get LLM provider details
-                llm_provider = None
+                # Get LLM provider details and configure LLM
+                llm = None
                 if agent.llm_provider_id:
                     llm_provider = (
                         db.query(LLMProvider)
                         .filter(LLMProvider.id == agent.llm_provider_id)
                         .first()
                     )
+                    
+                    if llm_provider and llm_provider.api_key_encrypted:
+                        try:
+                            # Decrypt API key
+                            api_key = encryption_service.decrypt(llm_provider.api_key_encrypted)
+                            model_name = agent.llm_model or llm_provider.default_model
+                            
+                            # Configure LLM based on provider type
+                            if llm_provider.name.lower() in ["openai", "gpt"]:
+                                from langchain_openai import ChatOpenAI
+                                llm = ChatOpenAI(
+                                    model=model_name or "gpt-4",
+                                    api_key=api_key,
+                                    temperature=float(agent.temperature or 0.7),
+                                )
+                            elif llm_provider.name.lower() in ["anthropic", "claude"]:
+                                from langchain_anthropic import ChatAnthropic
+                                llm = ChatAnthropic(
+                                    model=model_name or "claude-3-sonnet-20240229",
+                                    api_key=api_key,
+                                    temperature=float(agent.temperature or 0.7),
+                                )
+                            else:
+                                # Use LiteLLM for other providers
+                                logger.info(f"Using LiteLLM for provider: {llm_provider.name}")
+                                
+                        except Exception as e:
+                            logger.error(f"Failed to configure LLM for agent {agent.name}: {str(e)}")
 
-                # Build CrewAI agent
-                crew_agent = CrewAgent(
-                    role=agent.role,
-                    goal=agent.goal,
-                    backstory=agent.backstory or "",
-                    verbose=True,
-                    allow_delegation=False,
-                )
-
+                # Build CrewAI agent with LLM
+                agent_kwargs = {
+                    "role": agent.role,
+                    "goal": agent.goal,
+                    "backstory": agent.backstory or "",
+                    "verbose": True,
+                    "allow_delegation": False,
+                }
+                
+                # Add LLM if configured
+                if llm:
+                    agent_kwargs["llm"] = llm
+                
+                crew_agent = CrewAgent(**agent_kwargs)
                 crew_agents.append(crew_agent)
                 agent_map[str(agent.id)] = crew_agent
 
-                logger.info(f"Built agent: {agent.name}")
+                logger.info(f"Built agent: {agent.name} (LLM: {'configured' if llm else 'default'})")
 
             # Build CrewAI tasks
             crew_tasks = []

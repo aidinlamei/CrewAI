@@ -38,6 +38,8 @@ def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
 @router.get("/{project_id}", response_model=ProjectDetailResponse)
 def get_project(project_id: UUID, db: Session = Depends(get_db)):
     """Get project by ID."""
+    from app.models import Execution
+    
     project = db.query(Project).filter(Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -45,6 +47,7 @@ def get_project(project_id: UUID, db: Session = Depends(get_db)):
     # Get counts
     agents_count = db.query(Agent).filter(Agent.project_id == project_id).count()
     tasks_count = db.query(Task).filter(Task.project_id == project_id).count()
+    executions_count = db.query(Execution).filter(Execution.project_id == project_id).count()
 
     # Create response
     response = ProjectDetailResponse(
@@ -55,7 +58,7 @@ def get_project(project_id: UUID, db: Session = Depends(get_db)):
         updated_at=project.updated_at,
         agents_count=agents_count,
         tasks_count=tasks_count,
-        executions_count=0,
+        executions_count=executions_count,
     )
 
     return response

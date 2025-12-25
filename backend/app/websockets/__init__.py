@@ -1,9 +1,9 @@
 """WebSocket package."""
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from uuid import UUID
-from app.api.deps import get_db
+from typing import Optional
 from app.websockets.execution_ws import execution_manager
+from app.core.security import verify_token
 from app.utils.logger import logger
 
 # WebSocket router
@@ -14,8 +14,33 @@ execution_ws_router = APIRouter()
 async def execution_websocket(
     websocket: WebSocket,
     execution_id: UUID,
+    token: Optional[str] = Query(None),
 ):
-    """WebSocket endpoint for real-time execution updates."""
+    """
+    WebSocket endpoint for real-time execution updates.
+    
+    Requires authentication token as query parameter:
+    ws://localhost:8000/api/v1/ws/executions/{id}?token=your_jwt_token
+    """
+    # Verify authentication
+    if token:
+        try:
+            payload = verify_token(token)
+            user_id = payload.get("sub")
+            if not user_id:
+                await websocket.close(code=1008, reason="Invalid token")
+                return
+        except Exception as e:
+            logger.warning(f"WebSocket auth failed: {str(e)}")
+            await websocket.close(code=1008, reason="Authentication failed")
+            return
+    else:
+        # Allow unauthenticated connections in development
+        # In production, uncomment the following:
+        # await websocket.close(code=1008, reason="Token required")
+        # return
+        logger.warning(f"WebSocket connection without token for execution {execution_id}")
+    
     await execution_manager.connect(websocket, str(execution_id))
     
     try:
@@ -23,7 +48,7 @@ async def execution_websocket(
             # Keep connection alive and handle incoming messages
             data = await websocket.receive_text()
             
-            # Echo back (can be used for ping/pong)
+            # Handle ping/pong for keep-alive
             if data == "ping":
                 await websocket.send_text("pong")
                 

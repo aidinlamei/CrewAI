@@ -18,9 +18,11 @@ crewai-tools==0.2.6
 litellm==1.17.9
 tiktoken==0.5.2
 
-# LangChain (for tools)
+# LangChain (for tools and LLM integration)
 langchain==0.1.0
 langchain-community==0.0.13
+langchain-openai==0.0.5
+langchain-anthropic==0.1.1
 
 # Tools
 duckduckgo-search==4.1.1
@@ -45,10 +47,14 @@ redis==5.0.1
 # WebSocket
 websockets==12.0
 
-# Security
+# Security & Authentication
 cryptography==41.0.7
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
+
+# Rate Limiting
+slowapi==0.1.9
 
 # Utilities
 python-dotenv==1.0.0

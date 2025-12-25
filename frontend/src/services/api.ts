@@ -1,6 +1,7 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const TOKEN_KEY = 'crewai_token';
 
 export const api = axios.create({
   baseURL: `${API_URL}/api/v1`,
@@ -9,10 +10,13 @@ export const api = axios.create({
   },
 });
 
-// Request interceptor
+// Request interceptor - Add auth token
 api.interceptors.request.use(
-  (config) => {
-    // Add auth token if needed in the future
+  (config: InternalAxiosRequestConfig) => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
@@ -20,14 +24,25 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor
+// Response interceptor - Handle errors
 api.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
-    // Handle errors globally
-    console.error('API Error:', error);
+  (error: AxiosError) => {
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401) {
+      // Clear token and redirect to login
+      localStorage.removeItem(TOKEN_KEY);
+      
+      // Only redirect if not already on login page
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    
+    // Handle other errors
+    console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error);
   }
 );

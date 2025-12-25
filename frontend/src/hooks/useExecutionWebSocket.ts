@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+const TOKEN_KEY = 'crewai_token'
 
 interface WebSocketMessage {
   type: 'status_update' | 'log' | 'error' | 'result'
@@ -52,7 +53,13 @@ export function useExecutionWebSocket(options: UseExecutionWebSocketOptions | st
 
     const connect = () => {
       try {
-        const ws = new WebSocket(`${WS_URL}/api/v1/ws/executions/${executionId}`)
+        // Include auth token in WebSocket connection
+        const token = localStorage.getItem(TOKEN_KEY)
+        const wsUrl = token 
+          ? `${WS_URL}/api/v1/ws/executions/${executionId}?token=${token}`
+          : `${WS_URL}/api/v1/ws/executions/${executionId}`
+        
+        const ws = new WebSocket(wsUrl)
         wsRef.current = ws
 
         ws.onopen = () => {

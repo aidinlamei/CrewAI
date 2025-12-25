@@ -62,9 +62,16 @@ async def search_agent_memory(
     db: Session = Depends(get_db),
 ):
     """Search agent memory."""
+    from sqlalchemy import func
+    
+    # Sanitize search query - escape special SQL characters
+    search_query = request.query.replace("%", r"\%").replace("_", r"\_")
+    search_pattern = f"%{search_query}%"
+    
+    # Use parameterized query to prevent SQL injection
     query = db.query(MemoryEntry).filter(
         MemoryEntry.agent_id == agent_id,
-        MemoryEntry.content.ilike(f"%{request.query}%")
+        func.lower(MemoryEntry.content).like(func.lower(search_pattern))
     )
     
     if request.memory_type:
