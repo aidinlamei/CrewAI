@@ -439,6 +439,113 @@ GET /api/v1/token-usage?range=90d
 
 ---
 
+---
+
+## ✅ Stage 6 - Security Fixes (COMPLETED)
+**تاریخ:** 2024-12-25
+
+### چه کارهایی انجام شد:
+
+#### 1. Authentication System ✅
+- `backend/app/core/security.py` - JWT authentication:
+  - Password hashing with bcrypt
+  - Token creation/verification
+  - get_current_user dependency
+- `backend/app/api/v1/auth.py` - Auth endpoints:
+  - POST /auth/register - ثبت نام
+  - POST /auth/login - ورود
+  - GET /auth/me - پروفایل کاربر
+  - POST /auth/refresh - تازه‌سازی توکن
+- `frontend/src/pages/Login.tsx` - صفحه ورود/ثبت نام
+- `frontend/src/services/authService.ts` - مدیریت توکن
+
+#### 2. Rate Limiting ✅
+- `backend/app/core/rate_limit.py` - SlowAPI integration
+- محدودیت پیش‌فرض: 200 درخواست در دقیقه
+- محدودیت ویژه برای auth: 10 در دقیقه
+
+#### 3. Environment Variables ✅
+- `.env.example` - نمونه فایل environment
+- `docker-compose.yml` - استفاده از متغیرهای محیطی
+- حذف hardcoded secrets
+
+#### 4. Security Fixes ✅
+- SQL Injection fix در memory search
+- WebSocket authentication با token query param
+- غیرفعال کردن custom code execution
+- Protected routes در frontend
+
+#### 5. Functionality Fixes ✅
+- اتصال صحیح LLM به agents در CrewAI
+- رفع bug در project/execution counts
+- رفع memory leak در WebSocket manager
+- پیاده‌سازی built-in tools (web_search, wikipedia)
+
+---
+
+## 📁 ساختار فایل‌های Stage 6
+
+```
+backend/app/
+├── core/
+│   ├── __init__.py         ✅ NEW
+│   ├── security.py         ✅ NEW (JWT auth)
+│   └── rate_limit.py       ✅ NEW (SlowAPI)
+├── api/v1/
+│   ├── auth.py             ✅ NEW
+│   ├── __init__.py         ✅ UPDATED
+│   ├── memory.py           ✅ UPDATED (SQL injection fix)
+│   └── projects.py         ✅ UPDATED (counts fix)
+├── services/
+│   ├── crew_service.py     ✅ UPDATED (LLM connection)
+│   └── tool_service.py     ✅ UPDATED (disable custom, add builtin)
+├── websockets/
+│   ├── __init__.py         ✅ UPDATED (auth)
+│   └── execution_ws.py     ✅ UPDATED (memory leak fix)
+└── models/
+    └── user.py             ✅ UPDATED (hashed_password)
+
+frontend/src/
+├── pages/
+│   ├── Login.tsx           ✅ NEW
+│   └── App.tsx             ✅ UPDATED (ProtectedRoute)
+├── services/
+│   ├── authService.ts      ✅ NEW
+│   ├── api.ts              ✅ UPDATED (auth header)
+│   └── index.ts            ✅ UPDATED
+└── hooks/
+    └── useExecutionWebSocket.ts ✅ UPDATED (token)
+
+root/
+├── .env.example            ✅ NEW
+└── docker-compose.yml      ✅ UPDATED (env vars)
+```
+
+---
+
+## 📦 Dependencies Added (Stage 6)
+
+### Backend (requirements.txt)
+```
+slowapi==0.1.9
+bcrypt==4.1.2
+langchain-openai==0.0.5
+langchain-anthropic==0.1.1
+```
+
+---
+
+## 🔐 Environment Variables
+
+قبل از اجرا، فایل `.env` بسازید:
+
+```bash
+cp .env.example .env
+# Edit .env and change SECRET_KEY and ENCRYPTION_KEY
+```
+
+---
+
 *پروژه کامل شد! 🎉*
 
-*آخرین بروزرسانی: 2024-12-24 - All Stages Complete (Including Stage 5)*
+*آخرین بروزرسانی: 2024-12-25 - All Stages Complete (Including Stage 6 - Security)*
