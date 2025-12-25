@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Clock, DollarSign, Zap, XCircle, Download, Wifi, WifiOff, FileJson, FileText, Code } from 'lucide-react'
+import { ArrowLeft, Clock, DollarSign, Zap, XCircle, Download, Wifi, WifiOff, FileJson, FileText, Code, FileSpreadsheet, FileType } from 'lucide-react'
 import { MainLayout } from '@/components/Layout'
 import { Button, Card, CardHeader, PageSpinner, StatusBadge, Alert } from '@/components/Common'
 import { executionService } from '@/services/executionService'
@@ -173,6 +173,31 @@ export default function ExecutionDetail() {
                 >
                   <Code className="w-4 h-4" />
                   HTML
+                </a>
+                <hr className="my-1" />
+                <a
+                  href={`${import.meta.env.VITE_API_URL}/api/v1/executions/${id}/export?format=excel`}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  download
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Excel
+                </a>
+                <a
+                  href={`${import.meta.env.VITE_API_URL}/api/v1/executions/${id}/export?format=word`}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  download
+                >
+                  <FileType className="w-4 h-4" />
+                  Word
+                </a>
+                <a
+                  href={`${import.meta.env.VITE_API_URL}/api/v1/executions/${id}/export?format=pdf`}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  download
+                >
+                  <FileText className="w-4 h-4" />
+                  PDF
                 </a>
               </div>
             </div>

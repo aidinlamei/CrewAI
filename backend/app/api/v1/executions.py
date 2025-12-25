@@ -159,9 +159,9 @@ def export_execution(
     """
     Export execution result.
     
-    Supported formats: json, markdown, html, csv
+    Supported formats: json, markdown, html, excel, word, pdf
     """
-    from fastapi.responses import Response
+    from fastapi.responses import Response, StreamingResponse
     from app.services.export_service import export_service
     
     execution = db.query(Execution).filter(Execution.id == execution_id).first()
@@ -171,18 +171,27 @@ def export_execution(
     # Convert to dict
     exec_data = {
         "id": str(execution.id),
+        "Execution ID": str(execution.id),
         "project_id": str(execution.project_id),
         "status": execution.status,
+        "Status": execution.status,
         "input_data": execution.input_data,
         "output_format": execution.output_format,
         "result": execution.result,
+        "Result": execution.result,
         "logs": execution.logs,
+        "Logs": execution.logs,
         "error_message": execution.error_message,
         "tokens_used": execution.tokens_used,
+        "Tokens Used": execution.tokens_used,
         "estimated_cost": str(execution.estimated_cost) if execution.estimated_cost else "0",
+        "Estimated Cost": float(execution.estimated_cost) if execution.estimated_cost else 0,
         "started_at": execution.started_at.isoformat() if execution.started_at else None,
+        "Started At": execution.started_at.isoformat() if execution.started_at else "Not started",
         "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
+        "Completed At": execution.completed_at.isoformat() if execution.completed_at else "Not completed",
         "created_at": execution.created_at.isoformat() if execution.created_at else None,
+        "Created At": execution.created_at.isoformat() if execution.created_at else None,
     }
     
     if format == "json":
@@ -209,5 +218,38 @@ def export_execution(
             headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.html"}
         )
     
+    elif format == "excel":
+        try:
+            buffer = export_service.export_to_excel(exec_data)
+            return StreamingResponse(
+                buffer,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"}
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    elif format == "word":
+        try:
+            buffer = export_service.export_to_word(exec_data)
+            return StreamingResponse(
+                buffer,
+                media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"}
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    elif format == "pdf":
+        try:
+            buffer = export_service.export_to_pdf(exec_data)
+            return StreamingResponse(
+                buffer,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"}
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
     else:
-        raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {format}. Supported: json, markdown, html, excel, word, pdf")

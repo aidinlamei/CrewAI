@@ -1,112 +1,139 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { ExecutionWebSocket, createExecutionWebSocket, WebSocketMessage } from '@/services/websocket'
+import { useEffect, useState, useRef } from 'react'
+
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8000'
+
+interface WebSocketMessage {
+  type: 'status_update' | 'log' | 'error' | 'result'
+  status?: string
+  message?: string
+  error?: string
+  result?: any
+}
 
 interface UseExecutionWebSocketOptions {
   executionId: string
   enabled?: boolean
   onLog?: (log: string) => void
   onStatusChange?: (status: string) => void
-  onTaskUpdate?: (taskId: string, status: string, output?: string) => void
   onResult?: (result: any) => void
   onError?: (error: string) => void
 }
 
-interface UseExecutionWebSocketReturn {
-  isConnected: boolean
-  logs: string[]
-  connect: () => void
-  disconnect: () => void
-}
+export function useExecutionWebSocket(options: UseExecutionWebSocketOptions | string) {
+  // Handle both object and string argument
+  const config: UseExecutionWebSocketOptions = typeof options === 'string' 
+    ? { executionId: options }
+    : options
 
-export function useExecutionWebSocket({
-  executionId,
-  enabled = true,
-  onLog,
-  onStatusChange,
-  onTaskUpdate,
-  onResult,
-  onError,
-}: UseExecutionWebSocketOptions): UseExecutionWebSocketReturn {
+  const { executionId, enabled = true, onLog, onStatusChange, onResult, onError } = config
+
   const [isConnected, setIsConnected] = useState(false)
+  const [status, setStatus] = useState<string | null>(null)
   const [logs, setLogs] = useState<string[]>([])
-  const wsRef = useRef<ExecutionWebSocket | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const wsRef = useRef<WebSocket | null>(null)
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
-  const handleMessage = useCallback((message: WebSocketMessage) => {
-    switch (message.type) {
-      case 'connected':
-        console.log('WebSocket connected:', message.data)
-        break
-        
-      case 'log':
-        setLogs(prev => [...prev, message.data])
-        onLog?.(message.data)
-        break
-        
-      case 'status':
-        onStatusChange?.(message.data)
-        break
-        
-      case 'task_update':
-        onTaskUpdate?.(
-          message.data.task_id,
-          message.data.status,
-          message.data.output
-        )
-        break
-        
-      case 'result':
-        onResult?.(message.data)
-        break
-        
-      case 'error':
-        onError?.(message.data)
-        break
-        
-      default:
-        console.log('Unknown message type:', message.type)
-    }
-  }, [onLog, onStatusChange, onTaskUpdate, onResult, onError])
+  // Refs for callbacks to avoid stale closures
+  const onLogRef = useRef(onLog)
+  const onStatusChangeRef = useRef(onStatusChange)
+  const onResultRef = useRef(onResult)
+  const onErrorRef = useRef(onError)
 
-  const connect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.disconnect()
-    }
-
-    const ws = createExecutionWebSocket(executionId)
-    wsRef.current = ws
-
-    ws.onConnect(() => setIsConnected(true))
-    ws.onDisconnect(() => setIsConnected(false))
-    ws.onMessage(handleMessage)
-
-    ws.connect().catch(err => {
-      console.error('Failed to connect WebSocket:', err)
-    })
-  }, [executionId, handleMessage])
-
-  const disconnect = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.disconnect()
-      wsRef.current = null
-    }
-    setIsConnected(false)
-  }, [])
-
-  // Auto-connect when enabled
   useEffect(() => {
-    if (enabled && executionId) {
-      connect()
+    onLogRef.current = onLog
+    onStatusChangeRef.current = onStatusChange
+    onResultRef.current = onResult
+    onErrorRef.current = onError
+  }, [onLog, onStatusChange, onResult, onError])
+
+  useEffect(() => {
+    if (!executionId || !enabled) return
+
+    const connect = () => {
+      try {
+        const ws = new WebSocket(`${WS_URL}/api/v1/ws/executions/${executionId}`)
+        wsRef.current = ws
+
+        ws.onopen = () => {
+          console.log('WebSocket connected for execution:', executionId)
+          setIsConnected(true)
+          setError(null)
+        }
+
+        ws.onmessage = (event) => {
+          try {
+            const data: WebSocketMessage = JSON.parse(event.data)
+
+            switch (data.type) {
+              case 'status_update':
+                if (data.status) {
+                  setStatus(data.status)
+                  onStatusChangeRef.current?.(data.status)
+                }
+                break
+
+              case 'log':
+                if (data.message) {
+                  setLogs((prev) => [...prev, data.message!])
+                  onLogRef.current?.(data.message)
+                }
+                break
+
+              case 'result':
+                if (data.result) {
+                  onResultRef.current?.(data.result)
+                }
+                break
+
+              case 'error':
+                if (data.error) {
+                  setError(data.error)
+                  onErrorRef.current?.(data.error)
+                }
+                break
+            }
+          } catch (err) {
+            console.error('Failed to parse WebSocket message:', err)
+          }
+        }
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error)
+          setError('WebSocket connection error')
+          setIsConnected(false)
+        }
+
+        ws.onclose = () => {
+          console.log('WebSocket disconnected')
+          setIsConnected(false)
+          // Attempt to reconnect after 3 seconds if enabled
+          if (enabled) {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              console.log('Attempting to reconnect...')
+              connect()
+            }, 3000)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to create WebSocket:', err)
+        setError('Failed to establish WebSocket connection')
+        setIsConnected(false)
+      }
     }
 
+    connect()
+
+    // Cleanup
     return () => {
-      disconnect()
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current)
+      }
+      if (wsRef.current) {
+        wsRef.current.close()
+      }
     }
-  }, [enabled, executionId, connect, disconnect])
+  }, [executionId, enabled])
 
-  return {
-    isConnected,
-    logs,
-    connect,
-    disconnect,
-  }
+  return { isConnected, status, logs, error }
 }

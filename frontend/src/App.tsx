@@ -17,6 +17,7 @@ import Templates from './pages/Templates'
 import TokenUsage from './pages/TokenUsage'
 import Settings from './pages/Settings'
 import FlowDesigner from './pages/FlowDesigner'
+import Memory from './pages/Memory'
 
 // Create Query Client
 const queryClient = new QueryClient({
@@ -57,6 +58,7 @@ function App() {
             <Route path="/templates" element={<Templates />} />
             <Route path="/token-usage" element={<TokenUsage />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/agents/:agentId/memory" element={<Memory />} />
           </Routes>
           <Toaster position="top-right" />
         </div>
