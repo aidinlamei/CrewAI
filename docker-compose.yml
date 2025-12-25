@@ -44,6 +44,8 @@ services:
     environment:
       DATABASE_URL: postgresql://crewai:crewai123@postgres:5432/crewai_db
       REDIS_URL: redis://redis:6379
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
       SECRET_KEY: your-secret-key-change-in-production
       ENCRYPTION_KEY: your-encryption-key-change-in-production
       ENVIRONMENT: development
@@ -54,6 +56,49 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    networks:
+      - crewai-network
+
+  celery-worker:
+    build: ./backend
+    container_name: crewai-celery
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://crewai:crewai123@postgres:5432/crewai_db
+      REDIS_URL: redis://redis:6379
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: your-secret-key-change-in-production
+      ENCRYPTION_KEY: your-encryption-key-change-in-production
+      ENVIRONMENT: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    networks:
+      - crewai-network
+
+  celery-beat:
+    build: ./backend
+    container_name: crewai-celery-beat
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://crewai:crewai123@postgres:5432/crewai_db
+      REDIS_URL: redis://redis:6379
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      SECRET_KEY: your-secret-key-change-in-production
+      ENCRYPTION_KEY: your-encryption-key-change-in-production
+      ENVIRONMENT: development
+    depends_on:
+      - celery-worker
     networks:
       - crewai-network
 
