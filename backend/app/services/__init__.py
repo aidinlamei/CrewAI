@@ -6,8 +6,6 @@ from app.services.tool_service import tool_service
 from app.services.token_service import token_service
 from app.services.crew_service import crew_service
 from app.services.initialize_service import initialize_service
-from app.services.mem0_service import mem0_service           # ← ADD THIS
-from app.services.export_service import export_service       # ← ADD THIS
 from app.services.mem0_service import mem0_service
 
 __all__ = [
@@ -17,8 +15,6 @@ __all__ = [
     'token_service',
     'crew_service',
     'initialize_service',
-    'mem0_service',        # ← ADD THIS
-    'export_service',      # ← ADD THIS
-    'export_service',
     'mem0_service',
+    'export_service',
 ]

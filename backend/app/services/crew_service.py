@@ -12,8 +12,6 @@ from app.services.tool_service import tool_service
 from app.services.mem0_service import mem0_service
 from app.utils.logger import logger
 from app.utils.exceptions import CrewExecutionError
-from app.services.tool_service import tool_service        # ← ADD THIS
-from app.services.mem0_service import mem0_service        # ← ADD THIS
 
 
 class CrewService:

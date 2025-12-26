@@ -1,26 +1,15 @@
-import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { projectService } from '@/services/projectService'
-import { agentService } from '@/services/agentService'
-import { taskService } from '@/services/taskService'
-import FlowDesigner from '@/components/Flow/FlowDesigner'
-
-export default function ProjectDetail() {
-  const { id } = useParams<{ id: string }>()
-  const [activeTab, setActiveTab] = useState<'agents' | 'tasks' | 'flow'>('agents')
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { 
-  ArrowLeft, Users, ListTodo, Play, Edit2, Trash2, 
-  Plus, Clock, GitBranch 
+import {
+  ArrowLeft, Users, ListTodo, Play, Edit2, Trash2,
+  Plus, Clock, GitBranch
 } from 'lucide-react'
 import { MainLayout } from '@/components/Layout'
-import { 
-  Button, Card, CardHeader, Modal, Input, 
-  EmptyState, PageSpinner, ConfirmDialog, Alert 
+import {
+  Button, Card, CardHeader, Modal, Input,
+  EmptyState, PageSpinner, ConfirmDialog, Alert
 } from '@/components/Common'
 import { projectService } from '@/services/projectService'
 import { agentService } from '@/services/agentService'
@@ -79,7 +68,7 @@ export default function ProjectDetail() {
   })
 
   const executeMutation = useMutation({
-    mutationFn: () => executionService.execute(id!, { 
+    mutationFn: () => executionService.execute(id!, {
       input_data: executeInput ? JSON.parse(executeInput) : {},
       output_format: 'json'
     }),
@@ -220,7 +209,7 @@ export default function ProjectDetail() {
             <div>
               <h3 className="font-semibold text-gray-900">Execute Project</h3>
               <p className="text-sm text-gray-500">
-                {canExecute 
+                {canExecute
                   ? 'Run your crew with the configured agents and tasks'
                   : 'Add at least one agent and one task to execute'}
               </p>
@@ -235,98 +224,6 @@ export default function ProjectDetail() {
           </div>
         </Card>
 
-        {/* Tabs */}
-        <div className="card mb-8">
-          <div className="flex border-b border-gray-200 mb-4">
-            <button
-              onClick={() => setActiveTab('agents')}
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'agents'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Agents
-            </button>
-            <button
-              onClick={() => setActiveTab('tasks')}
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'tasks'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Tasks
-            </button>
-            <button
-              onClick={() => setActiveTab('flow')}
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'flow'
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Flow Designer
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          {activeTab === 'agents' && (
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Agents</h2>
-                <button className="btn btn-primary">Add Agent</button>
-              </div>
-              {agentsLoading ? (
-                <p className="text-gray-500">Loading agents...</p>
-              ) : agents && agents.length > 0 ? (
-                <div className="space-y-3">
-                  {agents.map((agent) => (
-                    <div key={agent.id} className="p-4 bg-gray-50 rounded-lg">
-                      <h3 className="font-bold text-gray-900">{agent.name}</h3>
-                      <p className="text-sm text-gray-600">{agent.role}</p>
-                      <p className="text-sm text-gray-500 mt-1">{agent.goal}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No agents yet</p>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'tasks' && (
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Tasks</h2>
-                <button className="btn btn-primary">Add Task</button>
-              </div>
-              {tasksLoading ? (
-                <p className="text-gray-500">Loading tasks...</p>
-              ) : tasks && tasks.length > 0 ? (
-                <div className="space-y-3">
-                  {tasks.map((task) => (
-                    <div key={task.id} className="p-4 bg-gray-50 rounded-lg">
-                      <h3 className="font-bold text-gray-900">{task.name}</h3>
-                      <p className="text-sm text-gray-600">{task.description}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500">No tasks yet</p>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'flow' && (
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Flow Designer</h2>
-              {agents && tasks ? (
-                <FlowDesigner agents={agents} tasks={tasks} />
-              ) : (
-                <p className="text-gray-500">Loading...</p>
-              )}
-            </div>
         <Card>
           <div className="flex items-center justify-between">
             <div>
