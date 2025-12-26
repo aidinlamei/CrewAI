@@ -13,6 +13,9 @@ from app.schemas import ExecutionCreate, ExecutionResponse, MessageResponse
 from app.tasks.crew_tasks import execute_crew_task
 from app.services.export_service import export_service
 from app.utils.logger import logger
+from app.tasks.crew_tasks import execute_crew_task          # ← ADD THIS
+from fastapi.responses import StreamingResponse             # ← ADD THIS
+from app.services.export_service import export_service      # ← ADD THIS
 
 router = APIRouter()
 

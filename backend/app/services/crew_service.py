@@ -12,6 +12,8 @@ from app.services.tool_service import tool_service
 from app.services.mem0_service import mem0_service
 from app.utils.logger import logger
 from app.utils.exceptions import CrewExecutionError
+from app.services.tool_service import tool_service        # ← ADD THIS
+from app.services.mem0_service import mem0_service        # ← ADD THIS
 
 
 class CrewService:
@@ -72,6 +74,19 @@ class CrewService:
                         .first()
                     )
 
+                # Get relevant memory context
+                backstory = agent.backstory or ""
+                try:
+                    memory_context = mem0_service.get_relevant_context(
+                        str(agent.id),
+                        agent.goal,
+                        limit=3
+                    )
+                    if memory_context:
+                        backstory = f"{backstory}\n\n{memory_context}"
+                except Exception as e:
+                    logger.warning(f"Failed to get memory context: {str(e)}")
+
                 # Get agent tools
                 agent_tools = []
                 if agent.tools:
@@ -127,16 +142,29 @@ class CrewService:
                 if task.agent_id and str(task.agent_id) in agent_map:
                     assigned_agent = agent_map[str(task.agent_id)]
 
+                # Get tools for task
+                task_tools = []
+                if task.tools:
+                    for tool_id in task.tools:
+                        try:
+                            tool = tool_service.get_tool(db, tool_id)
+                            if tool:
+                                executable_tool = tool_service.get_executable_tool(db, tool_id)
+                                task_tools.append(executable_tool)
+                        except Exception as e:
+                            logger.warning(f"Failed to load tool {tool_id}: {str(e)}")
+
                 # Build CrewAI task
                 crew_task = CrewTask(
                     description=task.description,
                     expected_output=task.expected_output or "Task completed",
                     agent=assigned_agent,
+                    tools=task_tools if task_tools else None,
                 )
 
                 crew_tasks.append(crew_task)
 
-                logger.info(f"Built task: {task.name}")
+                logger.info(f"Built task: {task.name} with {len(task_tools)} tools")
 
             # Build crew
             crew = Crew(
