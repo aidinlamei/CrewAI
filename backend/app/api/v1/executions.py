@@ -13,9 +13,6 @@ from app.schemas import ExecutionCreate, ExecutionResponse, MessageResponse
 from app.tasks.crew_tasks import execute_crew_task
 from app.services.export_service import export_service
 from app.utils.logger import logger
-from app.tasks.crew_tasks import execute_crew_task          # ← ADD THIS
-from fastapi.responses import StreamingResponse             # ← ADD THIS
-from app.services.export_service import export_service      # ← ADD THIS
 
 router = APIRouter()
 
@@ -104,8 +101,6 @@ async def export_execution_excel(execution_id: UUID, db: Session = Depends(get_d
         "Completed At": str(execution.completed_at or "Not completed"),
         "Tokens Used": execution.tokens_used or 0,
         "Estimated Cost": str(execution.estimated_cost or 0),
-        "Result": str(execution.result),
-        "Created At": str(execution.created_at),
     }
 
     buffer = export_service.export_to_excel(data)
@@ -113,7 +108,6 @@ async def export_execution_excel(execution_id: UUID, db: Session = Depends(get_d
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"}
         headers={
             "Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"
         },
@@ -133,8 +127,6 @@ async def export_execution_word(execution_id: UUID, db: Session = Depends(get_db
         "Result": execution.result or {},
         "Created At": str(execution.created_at),
         "Logs": execution.logs or "No logs available",
-        "Result": execution.result,
-        "Created At": str(execution.created_at),
     }
 
     buffer = export_service.export_to_word(data)
@@ -142,7 +134,6 @@ async def export_execution_word(execution_id: UUID, db: Session = Depends(get_db
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"}
         headers={
             "Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"
         },
@@ -160,7 +151,6 @@ async def export_execution_pdf(execution_id: UUID, db: Session = Depends(get_db)
         "Execution ID": str(execution.id),
         "Status": execution.status,
         "Result": str(execution.result or {}),
-        "Result": str(execution.result),
         "Created At": str(execution.created_at),
     }
 
@@ -169,7 +159,6 @@ async def export_execution_pdf(execution_id: UUID, db: Session = Depends(get_db)
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"}
         headers={
             "Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"
         },
