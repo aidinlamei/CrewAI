@@ -4,32 +4,47 @@ A comprehensive web-based management system for designing, configuring, and exec
 
 ## Features
 
+### Core Features
 - **Visual Project Management**: Create and manage CrewAI projects through an intuitive web interface
 - **Agent Configuration**: Design and configure AI agents with custom roles, goals, and backstories
 - **Task Orchestration**: Define tasks, set dependencies, and assign agents
 - **Universal LLM Support**: Integrate with any LLM provider (OpenAI, Anthropic, Google, Ollama, etc.) via LiteLLM
 - **Tool Library**: Access built-in tools and create custom tools with Python
-- **Real-time Execution**: Execute crews and monitor progress in real-time
-- **Token Tracking**: Track token usage and estimate costs across executions
 - **Project Templates**: Quick-start with pre-built templates for common use cases
+
+### New Advanced Features ✨
+- **Real-time Execution Logs**: Monitor crew execution with live WebSocket updates
+- **Background Task Processing**: Asynchronous execution using Celery for better performance
+- **LangChain Tool Integration**: Full integration with DuckDuckGo Search, Wikipedia, and custom tools
+- **Mem0 Memory System**: Agent memory management with search and context retrieval
+- **Token Usage Dashboard**: Comprehensive analytics with charts (usage over time, by agent, by model)
+- **Visual Flow Designer**: Interactive workflow visualization using React Flow
+- **Multi-Format Export**: Export execution results to Excel, Word, and PDF
+- **Monaco Code Editor**: Professional code editing for custom tools
+- **Execution Detail View**: Comprehensive execution logs, status, and results viewer
 
 ## Technology Stack
 
 ### Backend
-- **FastAPI** - Modern Python web framework
+- **FastAPI** - Modern Python web framework with WebSocket support
 - **PostgreSQL** - Robust relational database
 - **SQLAlchemy** - ORM for database operations
-- **CrewAI** - AI agent orchestration framework
-- **LiteLLM** - Universal LLM provider integration
-- **Celery + Redis** - Background task processing
+- **CrewAI 0.22.5** - AI agent orchestration framework
+- **LiteLLM** - Universal LLM provider integration (OpenAI, Anthropic, Google, etc.)
+- **Celery + Redis** - Background task processing and message queue
+- **Mem0** - AI memory management with vector storage (ChromaDB)
+- **Alembic** - Database migrations
 
 ### Frontend
 - **React 18** - Modern UI framework
 - **TypeScript** - Type-safe development
-- **Vite** - Fast build tool
+- **Vite** - Fast build tool and HMR
 - **Tailwind CSS** - Utility-first styling
-- **React Query** - Data fetching and caching
-- **Zustand** - State management
+- **React Query (TanStack Query)** - Data fetching, caching, and synchronization
+- **Zustand** - Lightweight state management
+- **Monaco Editor** - VS Code-powered code editor
+- **Recharts** - Composable charting library
+- **React Flow** - Interactive node-based UI
 
 ## Quick Start
 
@@ -125,11 +140,19 @@ Interactive API documentation is available at:
 
 ### Key Endpoints
 
+**Core APIs:**
 - `POST /api/v1/initialize` - Initialize system
 - `GET /api/v1/projects` - List projects
 - `POST /api/v1/projects` - Create project
 - `GET /api/v1/llm-providers` - List LLM providers
 - `POST /api/v1/projects/{id}/execute` - Execute project
+
+**Advanced APIs:**
+- `GET /api/v1/agents/{id}/memory` - Get agent memories
+- `POST /api/v1/agents/{id}/memory/search` - Semantic memory search
+- `GET /api/v1/token-usage?range=7d` - Token usage statistics
+- `GET /api/v1/executions/{id}/export?format=excel` - Export results (excel/word/pdf/json/html/markdown)
+- `WS /ws/execution/{id}` - WebSocket for real-time execution updates
 
 ## Development
 
@@ -204,15 +227,27 @@ For issues and questions:
 - GitHub Issues: [Create an issue]
 - Documentation: See SETUP.md for detailed setup instructions
 
+## Recent Updates (v1.0.0)
+
+✅ **Completed Features:**
+- Real-time execution monitoring with WebSocket
+- Celery background task processing
+- LangChain tools integration (DuckDuckGo, Wikipedia)
+- Mem0 memory management system
+- Token usage analytics dashboard
+- React Flow visual designer
+- Export to Excel/Word/PDF
+- Comprehensive execution logs viewer
+
 ## Roadmap
 
 - [ ] Multi-user authentication
-- [ ] Advanced flow designer
-- [ ] Memory management UI
 - [ ] Custom tool marketplace
-- [ ] Export to Python code
-- [ ] Scheduling and automation
+- [ ] Export project to standalone Python code
+- [ ] Scheduled/recurring executions
 - [ ] Team collaboration features
+- [ ] Advanced workflow conditions
+- [ ] Email notifications for execution completion
 
 ## Version
 

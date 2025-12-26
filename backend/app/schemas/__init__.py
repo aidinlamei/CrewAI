@@ -7,6 +7,7 @@ from app.schemas.tool import *
 from app.schemas.llm_provider import *
 from app.schemas.execution import *
 from app.schemas.memory import *  # ← ADD THIS LINE
+from app.schemas.memory import *
 
 __all__ = [
     # Common
@@ -52,4 +53,11 @@ __all__ = [
     'MemoryEntryResponse',
     'MemorySearchRequest',
     'MemorySearchResponse',
+    'MemoryEntryBase',
+    'MemoryEntryResponse',
+    'MemorySearchRequest',
+    'MemorySearchResponse',
+    'MemoryEntryCreate',
+    'MemoryEntryResponse',
+    'MemorySearchRequest',
 ]

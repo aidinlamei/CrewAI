@@ -1,58 +1,23 @@
 """
 Executions API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from datetime import datetime
 from app.api.deps import get_db
-from app.models import Execution
+from app.models import Execution, Project
 from app.schemas import ExecutionCreate, ExecutionResponse, MessageResponse
-from app.services.crew_service import crew_service
+from app.tasks.crew_tasks import execute_crew_task
+from app.services.export_service import export_service
 from app.utils.logger import logger
 from app.tasks.crew_tasks import execute_crew_task          # ← ADD THIS
 from fastapi.responses import StreamingResponse             # ← ADD THIS
 from app.services.export_service import export_service      # ← ADD THIS
 
 router = APIRouter()
-
-
-async def execute_crew_background(execution_id: UUID, db: Session):
-    """Execute crew in background."""
-    try:
-        execution = db.query(Execution).filter(Execution.id == execution_id).first()
-        if not execution:
-            return
-
-        # Update status
-        execution.status = "running"
-        execution.started_at = datetime.utcnow()
-        db.commit()
-
-        # Build and execute crew
-        crew = await crew_service.build_crew(
-            db, execution.project_id, execution.input_data
-        )
-        result = await crew_service.execute_crew(crew, execution.input_data)
-
-        # Update execution
-        execution.status = "completed"
-        execution.result = {"output": result["result"]}
-        execution.completed_at = datetime.utcnow()
-        db.commit()
-
-        logger.info(f"Execution {execution_id} completed successfully")
-
-    except Exception as e:
-        logger.error(f"Execution {execution_id} failed: {str(e)}")
-
-        execution = db.query(Execution).filter(Execution.id == execution_id).first()
-        if execution:
-            execution.status = "failed"
-            execution.error_message = str(e)
-            execution.completed_at = datetime.utcnow()
-            db.commit()
 
 
 @router.get("/", response_model=List[ExecutionResponse])
@@ -72,17 +37,20 @@ async def execute_project(
     # Create execution record
     execution = Execution(
         project_id=project_id,
-        input_data=execution_data.input_data,
-        output_format=execution_data.output_format,
+        input_data=execution_data.input_data or {},
+        output_format=execution_data.output_format or "json",
         status="pending",
     )
-
+    
     db.add(execution)
     db.commit()
     db.refresh(execution)
 
     # Execute in background using Celery
     execute_crew_task.delay(execution_id=str(execution.id))
+
+    logger.info(f"Queued execution {execution.id} for project {project_id}")
+    logger.info(f"Started execution {execution.id} for project {project_id}")
 
     return execution
 
@@ -106,6 +74,13 @@ def cancel_execution(execution_id: UUID, db: Session = Depends(get_db)):
     if execution.status in ["completed", "failed", "cancelled"]:
         raise HTTPException(status_code=400, detail="Execution already finished")
 
+    # Try to cancel Celery task
+    try:
+        from app.tasks.crew_tasks import cancel_execution_task
+        cancel_execution_task.delay(str(execution_id))
+    except Exception:
+        pass
+    
     execution.status = "cancelled"
     execution.completed_at = datetime.utcnow()
     db.commit()
@@ -129,6 +104,8 @@ async def export_execution_excel(execution_id: UUID, db: Session = Depends(get_d
         "Completed At": str(execution.completed_at or "Not completed"),
         "Tokens Used": execution.tokens_used or 0,
         "Estimated Cost": str(execution.estimated_cost or 0),
+        "Result": str(execution.result),
+        "Created At": str(execution.created_at),
     }
 
     buffer = export_service.export_to_excel(data)
@@ -137,6 +114,9 @@ async def export_execution_excel(execution_id: UUID, db: Session = Depends(get_d
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"}
+        headers={
+            "Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"
+        },
     )
 
 
@@ -153,6 +133,8 @@ async def export_execution_word(execution_id: UUID, db: Session = Depends(get_db
         "Result": execution.result or {},
         "Created At": str(execution.created_at),
         "Logs": execution.logs or "No logs available",
+        "Result": execution.result,
+        "Created At": str(execution.created_at),
     }
 
     buffer = export_service.export_to_word(data)
@@ -161,6 +143,9 @@ async def export_execution_word(execution_id: UUID, db: Session = Depends(get_db
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"}
+        headers={
+            "Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"
+        },
     )
 
 
@@ -175,6 +160,7 @@ async def export_execution_pdf(execution_id: UUID, db: Session = Depends(get_db)
         "Execution ID": str(execution.id),
         "Status": execution.status,
         "Result": str(execution.result or {}),
+        "Result": str(execution.result),
         "Created At": str(execution.created_at),
     }
 
@@ -184,4 +170,7 @@ async def export_execution_pdf(execution_id: UUID, db: Session = Depends(get_db)
         buffer,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"}
+        headers={
+            "Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"
+        },
     )
