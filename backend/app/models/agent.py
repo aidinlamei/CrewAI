@@ -15,12 +15,12 @@ class Agent(Base):
     __tablename__ = "agents"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     role = Column(String(500), nullable=False)
     goal = Column(Text, nullable=False)
     backstory = Column(Text, nullable=True)
-    llm_provider_id = Column(UUID(as_uuid=True), ForeignKey("llm_providers.id"), nullable=True)
+    llm_provider_id = Column(UUID(as_uuid=True), ForeignKey("llm_providers.id"), nullable=True, index=True)
     llm_model = Column(String(100), nullable=True)
     temperature = Column(Numeric(3, 2), default=0.7)
     max_tokens = Column(Integer, nullable=True)

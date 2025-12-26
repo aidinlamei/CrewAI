@@ -16,8 +16,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
-    # Database
-    DATABASE_URL: str = "postgresql://crewai:crewai123@localhost:5432/crewai_db"
+    # Database - MUST be set via environment variable in production
+    DATABASE_URL: str = ""
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
@@ -74,6 +74,30 @@ class Settings(BaseSettings):
                 # Auto-generate for development
                 self.ENCRYPTION_KEY = secrets.token_urlsafe(32)
                 print("⚠️  WARNING: Using auto-generated ENCRYPTION_KEY for development")
+
+        if not self.DATABASE_URL:
+            if self.ENVIRONMENT == "production":
+                raise ValueError(
+                    "DATABASE_URL must be set in production! "
+                    "Set it in .env or environment variables (e.g., postgresql://user:pass@host:5432/dbname)"
+                )
+            else:
+                # Use default for development
+                self.DATABASE_URL = "postgresql://crewai:crewai123@localhost:5432/crewai_db"
+                print("⚠️  WARNING: Using default DATABASE_URL for development")
+
+        # Validate CORS origins in production
+        if self.ENVIRONMENT == "production":
+            if "*" in self.CORS_ORIGINS:
+                raise ValueError(
+                    "CORS_ORIGINS cannot contain wildcards (*) in production! "
+                    "Set specific allowed origins in environment variables."
+                )
+            if not self.CORS_ORIGINS:
+                raise ValueError(
+                    "CORS_ORIGINS must be set in production! "
+                    "Set allowed origins in environment variables (e.g., ['https://example.com'])."
+                )
 
 
 settings = Settings()

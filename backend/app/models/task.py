@@ -15,12 +15,12 @@ class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False)
-    agent_id = Column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=True)
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    agent_id = Column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=True, index=True)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     expected_output = Column(Text, nullable=True)
-    order_index = Column(Integer, nullable=True)
+    order_index = Column(Integer, nullable=True, index=True)
     dependencies = Column(JSONB, nullable=True, default=[])  # Array of task IDs
     tools = Column(JSONB, nullable=True, default=[])  # Array of tool IDs
     context = Column(JSONB, nullable=True, default={})

@@ -1,6 +1,7 @@
 """API v1 package."""
 from fastapi import APIRouter
 from app.api.v1 import (
+    auth,
     initialize,
     projects,
     agents,
@@ -15,6 +16,7 @@ from app.api.v1 import (
 api_router = APIRouter()
 
 # Include routers
+api_router.include_router(auth.router, prefix="", tags=["auth"])
 api_router.include_router(initialize.router, prefix="", tags=["initialize"])
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
 api_router.include_router(agents.router, prefix="", tags=["agents"])

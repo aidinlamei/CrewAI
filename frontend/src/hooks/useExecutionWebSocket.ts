@@ -20,7 +20,13 @@ export function useExecutionWebSocket(executionId: string | null) {
   useEffect(() => {
     if (!executionId) return;
 
-    const ws = new WebSocket(`${WS_URL}/api/v1/ws/execution/${executionId}`);
+    // Get JWT token from localStorage (if available)
+    const token = localStorage.getItem('access_token');
+    const wsUrl = token
+      ? `${WS_URL}/api/v1/ws/execution/${executionId}?token=${token}`
+      : `${WS_URL}/api/v1/ws/execution/${executionId}`;
+
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {

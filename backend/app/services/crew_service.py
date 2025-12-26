@@ -2,7 +2,7 @@
 CrewAI orchestration service.
 """
 from typing import Dict, Any, List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from uuid import UUID
 from crewai import Agent as CrewAgent, Task as CrewTask, Crew, Process
 from app.models import Project, Agent, Task, LLMProvider
@@ -43,10 +43,18 @@ class CrewService:
             if not project:
                 raise CrewExecutionError(f"Project {project_id} not found")
 
-            # Get agents and tasks
-            agents = db.query(Agent).filter(Agent.project_id == project_id).all()
+            # Get agents with eager loading of llm_provider to avoid N+1 queries
+            agents = (
+                db.query(Agent)
+                .options(joinedload(Agent.llm_provider))
+                .filter(Agent.project_id == project_id)
+                .all()
+            )
+
+            # Get tasks with eager loading of agent to avoid N+1 queries
             tasks = (
                 db.query(Task)
+                .options(joinedload(Task.agent))
                 .filter(Task.project_id == project_id)
                 .order_by(Task.order_index)
                 .all()
@@ -63,14 +71,8 @@ class CrewService:
             agent_map = {}
 
             for agent in agents:
-                # Get LLM provider details
-                llm_provider = None
-                if agent.llm_provider_id:
-                    llm_provider = (
-                        db.query(LLMProvider)
-                        .filter(LLMProvider.id == agent.llm_provider_id)
-                        .first()
-                    )
+                # Get LLM provider details (already eager loaded via joinedload)
+                llm_provider = agent.llm_provider
 
                 # Get relevant memory context
                 backstory = agent.backstory or ""

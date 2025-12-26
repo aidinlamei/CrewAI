@@ -150,6 +150,7 @@ def execute_crew_task(self, execution_id: str):
         db.close()
 
 
+@celery_app.task
 def cancel_execution_task(execution_id: str):
     """
     Cancel a running execution.

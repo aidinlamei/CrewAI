@@ -1,7 +1,10 @@
 """
 Encryption service for API keys.
 """
+from base64 import urlsafe_b64encode
 from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from app.config import settings
 from app.utils.exceptions import EncryptionError
 from app.utils.logger import logger
@@ -10,19 +13,32 @@ from app.utils.logger import logger
 class EncryptionService:
     """Service for encrypting and decrypting sensitive data."""
 
+    # Static salt for key derivation (should be unique per application)
+    # In production, this could be stored in environment variables
+    SALT = b"crewai-manager-encryption-salt-v1"
+    KDF_ITERATIONS = 480000  # OWASP recommended minimum for PBKDF2-SHA256
+
     def __init__(self):
-        """Initialize encryption service."""
+        """Initialize encryption service with proper key derivation."""
         try:
-            # Use the encryption key from settings
-            # In production, this should be a proper base64-encoded Fernet key
-            key = settings.ENCRYPTION_KEY.encode()
-            # Ensure the key is properly formatted
-            if len(key) != 44:  # Fernet keys must be 44 bytes (32 bytes base64 encoded)
-                # Generate a proper key from the settings key
-                from base64 import urlsafe_b64encode
-                import hashlib
-                key = urlsafe_b64encode(hashlib.sha256(key).digest())
-            self.cipher = Fernet(key)
+            # Derive a proper Fernet key from the ENCRYPTION_KEY using PBKDF2
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,  # 32 bytes for Fernet
+                salt=self.SALT,
+                iterations=self.KDF_ITERATIONS,
+            )
+
+            # Derive key from password
+            password = settings.ENCRYPTION_KEY.encode()
+            derived_key = kdf.derive(password)
+
+            # Encode for Fernet (requires base64-encoded 32-byte key)
+            fernet_key = urlsafe_b64encode(derived_key)
+
+            self.cipher = Fernet(fernet_key)
+
+            logger.info("Encryption service initialized with PBKDF2 key derivation")
         except Exception as e:
             logger.error(f"Failed to initialize encryption service: {str(e)}")
             raise EncryptionError(f"Failed to initialize encryption: {str(e)}")

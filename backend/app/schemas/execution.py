@@ -13,19 +13,19 @@ class ExecutionCreate(BaseModel):
     """Execution creation schema."""
 
     project_id: UUID
-    input_data: Optional[Dict[str, Any]] = {}
-    output_format: str = Field(default="json", regex="^(json|markdown|excel|word|pdf|html)$")
+    input_data: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Input data for execution")
+    output_format: str = Field(default="json", pattern="^(json|markdown|excel|word|pdf|html)$", description="Output format")
 
 
 class ExecutionUpdate(BaseModel):
     """Execution update schema."""
 
-    status: Optional[str] = Field(None, regex="^(pending|running|completed|failed|cancelled)$")
+    status: Optional[str] = Field(None, pattern="^(pending|running|completed|failed|cancelled)$")
     result: Optional[Dict[str, Any]] = None
-    logs: Optional[str] = None
-    error_message: Optional[str] = None
-    tokens_used: Optional[int] = None
-    estimated_cost: Optional[Decimal] = None
+    logs: Optional[str] = Field(None, max_length=1000000)  # 1MB max for logs
+    error_message: Optional[str] = Field(None, max_length=10000)
+    tokens_used: Optional[int] = Field(None, ge=0)
+    estimated_cost: Optional[Decimal] = Field(None, ge=0)
 
 
 class ExecutionResponse(BaseSchema):

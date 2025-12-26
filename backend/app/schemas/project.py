@@ -11,8 +11,8 @@ from app.schemas.common import BaseSchema
 class ProjectBase(BaseModel):
     """Base project schema."""
 
-    name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=255, description="Project name")
+    description: Optional[str] = Field(None, max_length=5000, description="Project description")
 
 
 class ProjectCreate(ProjectBase):
@@ -25,7 +25,7 @@ class ProjectUpdate(BaseModel):
     """Project update schema."""
 
     name: Optional[str] = Field(None, min_length=1, max_length=255)
-    description: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=5000)
 
 
 class ProjectResponse(ProjectBase, BaseSchema):

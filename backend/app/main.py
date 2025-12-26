@@ -19,13 +19,21 @@ app = FastAPI(
     description="CrewAI Management System API",
 )
 
-# Add CORS middleware
+# Add CORS middleware with secure configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.CORS_ORIGINS,  # Specific origins only, no wildcards in production
+    allow_credentials=True,  # Required for JWT authentication
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],  # Only needed HTTP methods
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Type",
+        "Authorization",  # For Bearer tokens
+        "X-Requested-With",
+    ],
+    expose_headers=["Content-Length", "Content-Type"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 # Include API router

@@ -1,7 +1,8 @@
 """
 WebSocket endpoints for real-time communication.
 """
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+from typing import Optional
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -9,6 +10,8 @@ from app.api.deps import get_db
 from app.models import Execution
 from app.websockets.execution_ws import ws_manager
 from app.utils.logger import logger
+from app.utils.auth import decode_access_token
+from app.services.auth_service import auth_service
 
 router = APIRouter()
 
@@ -17,6 +20,7 @@ router = APIRouter()
 async def execution_websocket(
     websocket: WebSocket,
     execution_id: str,
+    token: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
     """
@@ -24,8 +28,30 @@ async def execution_websocket(
 
     Clients connect to this endpoint to receive real-time updates
     about execution progress, logs, and results.
+
+    Authentication is via token query parameter.
+    Example: ws://host/api/v1/ws/execution/{id}?token={jwt_token}
     """
     try:
+        # Authenticate user via token
+        if token:
+            payload = decode_access_token(token)
+            if payload is None:
+                await websocket.close(code=4001, reason="Invalid authentication token")
+                return
+
+            user_id = payload.get("sub")
+            if not user_id:
+                await websocket.close(code=4001, reason="Invalid token payload")
+                return
+
+            user = auth_service.get_user_by_id(db, user_id)
+            if not user or not user.is_active:
+                await websocket.close(code=4003, reason="User not found or inactive")
+                return
+
+            logger.info(f"WebSocket authenticated for user {user.email}")
+
         # Verify execution exists
         execution = db.query(Execution).filter(Execution.id == execution_id).first()
         if not execution:

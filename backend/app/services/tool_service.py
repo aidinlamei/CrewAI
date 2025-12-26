@@ -18,6 +18,16 @@ except ImportError:
     LANGCHAIN_AVAILABLE = False
     LangChainTool = None
 
+# Import RestrictedPython for sandboxed code execution
+try:
+    from RestrictedPython import compile_restricted_exec
+    from RestrictedPython.Guards import safe_builtins, safe_globals
+    from RestrictedPython.Eval import default_guarded_getitem
+    RESTRICTED_PYTHON_AVAILABLE = True
+except ImportError:
+    logger.warning("RestrictedPython not available - custom tools will use unsafe exec()")
+    RESTRICTED_PYTHON_AVAILABLE = False
+
 
 class ToolService:
     """Service for managing and executing tools."""
@@ -186,17 +196,42 @@ class ToolService:
     def _execute_custom_tool(
         self, tool: Tool, parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Execute a custom Python tool."""
+        """Execute a custom Python tool in a sandboxed environment."""
         if not tool.python_code:
             raise ToolExecutionError("No Python code defined for custom tool")
 
         try:
-            # Create a namespace for execution
-            namespace = {"parameters": parameters}
+            if RESTRICTED_PYTHON_AVAILABLE:
+                # Use RestrictedPython for sandboxed execution
+                byte_code = compile_restricted_exec(tool.python_code)
 
-            # Execute the Python code
-            # WARNING: This should be sandboxed in production!
-            exec(tool.python_code, namespace)
+                # Check for compilation errors
+                if byte_code.errors:
+                    error_msg = "; ".join(byte_code.errors)
+                    raise ToolExecutionError(f"Code compilation failed: {error_msg}")
+
+                # Create restricted namespace with safe builtins
+                restricted_globals = {
+                    "__builtins__": safe_builtins,
+                    "_getitem_": default_guarded_getitem,
+                    "parameters": parameters,
+                    # Allow common safe modules
+                    "json": __import__("json"),
+                    "math": __import__("math"),
+                    "datetime": __import__("datetime"),
+                }
+
+                # Execute the code in restricted environment
+                exec(byte_code.code, restricted_globals)
+                namespace = restricted_globals
+
+                logger.info(f"Executed custom tool '{tool.name}' in sandboxed environment")
+
+            else:
+                # Fallback to unsafe exec if RestrictedPython not available
+                logger.warning(f"Executing custom tool '{tool.name}' with unsafe exec()")
+                namespace = {"parameters": parameters}
+                exec(tool.python_code, namespace)
 
             # Look for a function with the same name as the tool
             if tool.name in namespace and callable(namespace[tool.name]):
@@ -214,6 +249,8 @@ class ToolService:
                 "tool": tool.name,
             }
 
+        except ToolExecutionError:
+            raise
         except Exception as e:
             raise ToolExecutionError(f"Custom tool execution failed: {str(e)}")
 

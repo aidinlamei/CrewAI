@@ -15,8 +15,8 @@ class Execution(Base):
     __tablename__ = "executions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
-    status = Column(String(50), nullable=False, default="pending")  # pending, running, completed, failed, cancelled
+    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    status = Column(String(50), nullable=False, default="pending", index=True)  # pending, running, completed, failed, cancelled
     input_data = Column(JSONB, nullable=True, default={})
     output_format = Column(String(50), nullable=True, default="json")  # json, markdown, excel
     result = Column(JSONB, nullable=True)
@@ -26,7 +26,7 @@ class Execution(Base):
     estimated_cost = Column(Numeric(10, 4), nullable=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     # Relationships
     project = relationship("Project", back_populates="executions")
