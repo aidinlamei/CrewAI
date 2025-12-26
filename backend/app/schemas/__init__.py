@@ -53,4 +53,7 @@ __all__ = [
     'MemoryEntryResponse',
     'MemorySearchRequest',
     'MemorySearchResponse',
+    'MemoryEntryCreate',
+    'MemoryEntryResponse',
+    'MemorySearchRequest',
 ]

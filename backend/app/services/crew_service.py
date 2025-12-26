@@ -8,6 +8,8 @@ from crewai import Agent as CrewAgent, Task as CrewTask, Crew, Process
 from app.models import Project, Agent, Task, LLMProvider
 from app.services.llm_service import llm_service
 from app.services.encryption_service import encryption_service
+from app.services.tool_service import tool_service
+from app.services.mem0_service import mem0_service
 from app.utils.logger import logger
 from app.utils.exceptions import CrewExecutionError
 
@@ -70,19 +72,51 @@ class CrewService:
                         .first()
                     )
 
+                # Get agent tools
+                agent_tools = []
+                if agent.tools:
+                    for tool_id in agent.tools:
+                        try:
+                            executable_tool = tool_service.get_executable_tool(
+                                db, str(tool_id)
+                            )
+                            if executable_tool:
+                                agent_tools.append(executable_tool)
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to load tool {tool_id}: {str(e)}"
+                            )
+
+                # Get relevant memory context
+                memory_context = ""
+                try:
+                    memory_context = mem0_service.get_relevant_context(
+                        str(agent.id), agent.goal or ""
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to get memory context: {str(e)}")
+
+                # Build backstory with memory context
+                backstory = agent.backstory or ""
+                if memory_context:
+                    backstory = f"{backstory}\n\n{memory_context}"
+
                 # Build CrewAI agent
                 crew_agent = CrewAgent(
                     role=agent.role,
                     goal=agent.goal,
-                    backstory=agent.backstory or "",
+                    backstory=backstory,
                     verbose=True,
                     allow_delegation=False,
+                    tools=agent_tools if agent_tools else None,
                 )
 
                 crew_agents.append(crew_agent)
                 agent_map[str(agent.id)] = crew_agent
 
-                logger.info(f"Built agent: {agent.name}")
+                logger.info(
+                    f"Built agent: {agent.name} with {len(agent_tools)} tools"
+                )
 
             # Build CrewAI tasks
             crew_tasks = []
