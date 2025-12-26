@@ -3,6 +3,8 @@ Configuration settings for the CrewAI Manager application.
 """
 from pydantic_settings import BaseSettings
 from typing import Optional
+import os
+import secrets
 
 
 class Settings(BaseSettings):
@@ -20,9 +22,9 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
 
-    # Security
-    SECRET_KEY: str = "your-secret-key-change-in-production"
-    ENCRYPTION_KEY: str = "your-encryption-key-for-api-keys"
+    # Security - MUST be set via environment variables in production
+    SECRET_KEY: str = ""
+    ENCRYPTION_KEY: str = ""
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
@@ -46,6 +48,32 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        # Generate random keys if not set (development only)
+        if not self.SECRET_KEY:
+            if self.ENVIRONMENT == "production":
+                raise ValueError(
+                    "SECRET_KEY must be set in production! "
+                    "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+                )
+            else:
+                # Auto-generate for development
+                self.SECRET_KEY = secrets.token_urlsafe(32)
+                print("⚠️  WARNING: Using auto-generated SECRET_KEY for development")
+
+        if not self.ENCRYPTION_KEY:
+            if self.ENVIRONMENT == "production":
+                raise ValueError(
+                    "ENCRYPTION_KEY must be set in production! "
+                    "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+                )
+            else:
+                # Auto-generate for development
+                self.ENCRYPTION_KEY = secrets.token_urlsafe(32)
+                print("⚠️  WARNING: Using auto-generated ENCRYPTION_KEY for development")
 
 
 settings = Settings()

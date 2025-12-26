@@ -6,6 +6,7 @@ interface LogMessage {
   type: string;
   message: string;
   timestamp: string;
+  level?: string;
 }
 
 export function useExecutionWebSocket(executionId: string | null) {
@@ -32,29 +33,43 @@ export function useExecutionWebSocket(executionId: string | null) {
 
       switch (data.type) {
         case 'log':
-          setLogs((prev) => [...prev, data]);
+          setLogs((prev) => [
+            ...prev,
+            {
+              type: data.level || 'info',
+              message: data.message,
+              timestamp: new Date().toISOString(),
+            },
+          ]);
           break;
         case 'status':
-          const statusData = JSON.parse(data.message);
-          setStatus(statusData.status);
+          // Backend sends: { type: "status", status: "running" }
+          setStatus(data.status);
           break;
         case 'task_update':
-          const taskData = JSON.parse(data.message);
+          // Backend sends: { type: "task_update", task: "...", status: "..." }
           setLogs((prev) => [
             ...prev,
             {
               type: 'task',
-              message: `Task "${taskData.task}" - ${taskData.status}`,
-              timestamp: data.timestamp,
+              message: `Task "${data.task}" - ${data.status}`,
+              timestamp: new Date().toISOString(),
             },
           ]);
           break;
         case 'result':
-          setResult(JSON.parse(data.message));
+          // Backend sends: { type: "result", result: {...} }
+          setResult(data.result);
           break;
         case 'error':
+          // Backend sends: { type: "error", message: "..." }
           setError(data.message);
           break;
+        case 'heartbeat':
+          // Heartbeat - do nothing
+          break;
+        default:
+          console.warn('Unknown WebSocket message type:', data.type);
       }
     };
 

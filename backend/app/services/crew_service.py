@@ -100,20 +100,6 @@ class CrewService:
                                 f"Failed to load tool {tool_id}: {str(e)}"
                             )
 
-                # Get relevant memory context
-                memory_context = ""
-                try:
-                    memory_context = mem0_service.get_relevant_context(
-                        str(agent.id), agent.goal or ""
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to get memory context: {str(e)}")
-
-                # Build backstory with memory context
-                backstory = agent.backstory or ""
-                if memory_context:
-                    backstory = f"{backstory}\n\n{memory_context}"
-
                 # Build CrewAI agent
                 crew_agent = CrewAgent(
                     role=agent.role,
