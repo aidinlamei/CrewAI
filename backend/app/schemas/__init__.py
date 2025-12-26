@@ -49,6 +49,10 @@ __all__ = [
     'ExecutionDetailResponse',
     'ExecutionLogResponse',
     # Memory
+    'MemoryEntryBase',
+    'MemoryEntryResponse',
+    'MemorySearchRequest',
+    'MemorySearchResponse',
     'MemoryEntryCreate',
     'MemoryEntryResponse',
     'MemorySearchRequest',

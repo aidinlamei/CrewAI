@@ -14,11 +14,35 @@ from app.utils.logger import logger
 from app.utils.exceptions import ToolExecutionError, ValidationError
 from app.utils.validators import validate_python_code
 
+# Import LangChain tools
+try:
+    from langchain.tools import DuckDuckGoSearchRun
+    from langchain_community.utilities import WikipediaAPIWrapper
+    from langchain.tools import WikipediaQueryRun
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    logger.warning("LangChain tools not available")
+    LANGCHAIN_AVAILABLE = False
+
 
 class ToolService:
     """Service for managing and executing tools."""
 
     def __init__(self):
+        """Initialize tool service with LangChain tools."""
+        self.langchain_tools = {}
+        if LANGCHAIN_AVAILABLE:
+            try:
+                self.langchain_tools['duckduckgo_search'] = DuckDuckGoSearchRun()
+                self.langchain_tools['wikipedia'] = WikipediaQueryRun(
+                    api_wrapper=WikipediaAPIWrapper()
+                )
+                logger.info("LangChain tools initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize LangChain tools: {e}")
+
+    @staticmethod
+    def get_tool(db: Session, tool_id: str) -> Optional[Tool]:
         """Initialize tool service."""
         self.langchain_tools = {}
         self._init_langchain_tools()
@@ -131,9 +155,6 @@ class ToolService:
 
         Returns:
             Execution result
-
-        Raises:
-            ToolExecutionError: If execution fails
         """
         try:
             logger.info(f"Executing tool: {tool.name} (type: {tool.type})")
@@ -151,6 +172,27 @@ class ToolService:
             logger.error(f"Tool execution failed: {str(e)}")
             raise ToolExecutionError(f"Tool execution failed: {str(e)}")
 
+    def _execute_langchain_tool(self, tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a LangChain tool."""
+        if not LANGCHAIN_AVAILABLE:
+            raise ToolExecutionError("LangChain tools not available")
+
+        # Map tool names to internal keys
+        tool_map = {
+            'DuckDuckGo Search': 'duckduckgo_search',
+            'Wikipedia': 'wikipedia',
+        }
+
+        tool_key = tool_map.get(tool.name)
+        if not tool_key or tool_key not in self.langchain_tools:
+            raise ToolExecutionError(f"LangChain tool not found: {tool.name}")
+
+        langchain_tool = self.langchain_tools[tool_key]
+
+        # Get query parameter
+        query = parameters.get('query') or parameters.get('input') or parameters.get('q')
+        if not query:
+            raise ToolExecutionError("Query parameter required (use 'query', 'input', or 'q')")
     def _execute_langchain_tool(
         self, tool: Tool, parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -184,6 +226,7 @@ class ToolService:
             "tool": tool.name,
         }
 
+    def _execute_custom_tool(self, tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
     def _execute_custom_tool(
         self, tool: Tool, parameters: Dict[str, Any]
     ) -> Dict[str, Any]:
@@ -192,6 +235,16 @@ class ToolService:
             raise ToolExecutionError("No Python code defined for custom tool")
 
         try:
+            namespace = {'parameters': parameters}
+            exec(tool.python_code, namespace)
+
+            # Look for callable
+            if tool.name in namespace and callable(namespace[tool.name]):
+                result = namespace[tool.name](**parameters)
+            elif 'run' in namespace and callable(namespace['run']):
+                result = namespace['run'](**parameters)
+            else:
+                raise ToolExecutionError("No callable function found")
             # Create a namespace for execution
             namespace = {"parameters": parameters}
 
@@ -218,6 +271,21 @@ class ToolService:
         except Exception as e:
             raise ToolExecutionError(f"Custom tool execution failed: {str(e)}")
 
+    def _execute_builtin_tool(self, tool: Tool, parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a built-in tool."""
+        # For now, return a placeholder
+        # In the future, implement actual built-in tools
+        return {
+            "success": True,
+            "result": f"Built-in tool {tool.name} executed",
+            "tool": tool.name,
+        }
+
+    @staticmethod
+    def get_tool_categories(db: Session) -> List[str]:
+        """Get list of all tool categories."""
+        categories = db.query(Tool.category).distinct().all()
+        return [cat[0] for cat in categories if cat[0]]
     def _execute_builtin_tool(
         self, tool: Tool, parameters: Dict[str, Any]
     ) -> Dict[str, Any]:

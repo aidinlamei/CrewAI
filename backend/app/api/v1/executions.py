@@ -46,6 +46,7 @@ async def execute_project(
     # Execute in background using Celery
     execute_crew_task.delay(execution_id=str(execution.id))
 
+    logger.info(f"Queued execution {execution.id} for project {project_id}")
     logger.info(f"Started execution {execution.id} for project {project_id}")
 
     return execution
@@ -94,6 +95,12 @@ async def export_execution_excel(execution_id: UUID, db: Session = Depends(get_d
     data = {
         "Execution ID": str(execution.id),
         "Status": execution.status,
+        "Result": str(execution.result or {}),
+        "Created At": str(execution.created_at),
+        "Started At": str(execution.started_at or "Not started"),
+        "Completed At": str(execution.completed_at or "Not completed"),
+        "Tokens Used": execution.tokens_used or 0,
+        "Estimated Cost": str(execution.estimated_cost or 0),
         "Result": str(execution.result),
         "Created At": str(execution.created_at),
     }
@@ -103,6 +110,7 @@ async def export_execution_excel(execution_id: UUID, db: Session = Depends(get_d
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"}
         headers={
             "Content-Disposition": f"attachment; filename=execution_{execution_id}.xlsx"
         },
@@ -119,6 +127,9 @@ async def export_execution_word(execution_id: UUID, db: Session = Depends(get_db
     data = {
         "Execution ID": str(execution.id),
         "Status": execution.status,
+        "Result": execution.result or {},
+        "Created At": str(execution.created_at),
+        "Logs": execution.logs or "No logs available",
         "Result": execution.result,
         "Created At": str(execution.created_at),
     }
@@ -128,6 +139,7 @@ async def export_execution_word(execution_id: UUID, db: Session = Depends(get_db
     return StreamingResponse(
         buffer,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"}
         headers={
             "Content-Disposition": f"attachment; filename=execution_{execution_id}.docx"
         },
@@ -144,6 +156,7 @@ async def export_execution_pdf(execution_id: UUID, db: Session = Depends(get_db)
     data = {
         "Execution ID": str(execution.id),
         "Status": execution.status,
+        "Result": str(execution.result or {}),
         "Result": str(execution.result),
         "Created At": str(execution.created_at),
     }
@@ -153,6 +166,7 @@ async def export_execution_pdf(execution_id: UUID, db: Session = Depends(get_db)
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"}
         headers={
             "Content-Disposition": f"attachment; filename=execution_{execution_id}.pdf"
         },

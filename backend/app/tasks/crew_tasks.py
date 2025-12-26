@@ -1,3 +1,8 @@
+"""Celery tasks for crew execution."""
+from celery import Task
+from sqlalchemy.orm import Session
+from datetime import datetime
+from uuid import UUID
 """
 Celery tasks for crew execution.
 """
@@ -9,6 +14,8 @@ from app.tasks.celery_app import celery_app
 from app.database import SessionLocal
 from app.models import Execution
 from app.services.crew_service import crew_service
+from app.utils.logger import logger
+import asyncio
 from app.websockets.execution_ws import ws_manager
 from app.utils.logger import logger
 
@@ -18,6 +25,11 @@ class ExecutionTask(Task):
 
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """Handle task failure."""
+        execution_id = kwargs.get('execution_id')
+        if execution_id:
+            db = SessionLocal()
+            try:
+                execution = db.query(Execution).filter(Execution.id == execution_id).first()
         execution_id = kwargs.get("execution_id")
         if execution_id:
             db = SessionLocal()
@@ -56,6 +68,7 @@ def execute_crew_task(self, execution_id: str):
 
     try:
         # Get execution
+        execution = db.query(Execution).filter(Execution.id == execution_id).first()
         execution = (
             db.query(Execution).filter(Execution.id == execution_id).first()
         )
@@ -65,6 +78,29 @@ def execute_crew_task(self, execution_id: str):
         # Update status
         execution.status = "running"
         execution.started_at = datetime.utcnow()
+        db.commit()
+
+        logger.info(f"Executing crew for execution {execution_id}")
+
+        # Build and execute crew
+        # crew_service methods are async, so we need to run them in an event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            crew = loop.run_until_complete(
+                crew_service.build_crew(db, execution.project_id, execution.input_data)
+            )
+            result = loop.run_until_complete(
+                crew_service.execute_crew(crew, execution.input_data)
+            )
+        finally:
+            loop.close()
+
+        # Update execution with result
+        execution.status = "completed"
+        execution.result = {"output": result["result"]}
+        execution.completed_at = datetime.utcnow()
         db.commit()
 
         # Send status via WebSocket
@@ -118,6 +154,7 @@ def execute_crew_task(self, execution_id: str):
     except Exception as e:
         logger.error(f"Execution {execution_id} failed: {str(e)}")
 
+        execution = db.query(Execution).filter(Execution.id == execution_id).first()
         execution = (
             db.query(Execution).filter(Execution.id == execution_id).first()
         )
